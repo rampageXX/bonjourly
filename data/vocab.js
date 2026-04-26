@@ -1,0 +1,73 @@
+const VOCABULARY = [
+  // Greetings & politeness
+  { id: 'w001', french: 'bonjour',        english: 'hello',          type: 'word',   gender: null, category: 'greetings', difficulty: 1, audio_text: 'bonjour' },
+  { id: 'w002', french: 'bonsoir',        english: 'good evening',   type: 'word',   gender: null, category: 'greetings', difficulty: 1, audio_text: 'bonsoir' },
+  { id: 'w003', french: 'merci',          english: 'thank you',      type: 'word',   gender: null, category: 'greetings', difficulty: 1, audio_text: 'merci' },
+  { id: 'w004', french: "s'il vous plaît",english: 'please',         type: 'phrase', gender: null, category: 'greetings', difficulty: 1, audio_text: "s'il vous plaît" },
+  { id: 'w005', french: 'au revoir',      english: 'goodbye',        type: 'phrase', gender: null, category: 'greetings', difficulty: 1, audio_text: 'au revoir' },
+  { id: 'w006', french: 'oui',            english: 'yes',            type: 'word',   gender: null, category: 'greetings', difficulty: 1, audio_text: 'oui' },
+  { id: 'w007', french: 'non',            english: 'no',             type: 'word',   gender: null, category: 'greetings', difficulty: 1, audio_text: 'non' },
+  { id: 'w008', french: 'pardon',         english: 'excuse me',      type: 'word',   gender: null, category: 'greetings', difficulty: 1, audio_text: 'pardon' },
+  { id: 'w009', french: 'salut',          english: 'hi',             type: 'word',   gender: null, category: 'greetings', difficulty: 1, audio_text: 'salut' },
+  { id: 'w010', french: 'ça va',          english: 'how are you',    type: 'phrase', gender: null, category: 'greetings', difficulty: 1, audio_text: 'ça va' },
+
+  // Family
+  { id: 'w011', french: 'la mère',        english: 'the mother',     type: 'word',   gender: 'f',  category: 'family',    difficulty: 1, audio_text: 'la mère' },
+  { id: 'w012', french: 'le père',        english: 'the father',     type: 'word',   gender: 'm',  category: 'family',    difficulty: 1, audio_text: 'le père' },
+  { id: 'w013', french: 'le frère',       english: 'the brother',    type: 'word',   gender: 'm',  category: 'family',    difficulty: 1, audio_text: 'le frère' },
+  { id: 'w014', french: 'la sœur',        english: 'the sister',     type: 'word',   gender: 'f',  category: 'family',    difficulty: 1, audio_text: 'la sœur' },
+  { id: 'w015', french: 'la famille',     english: 'the family',     type: 'word',   gender: 'f',  category: 'family',    difficulty: 1, audio_text: 'la famille' },
+  { id: 'w016', french: 'le fils',        english: 'the son',        type: 'word',   gender: 'm',  category: 'family',    difficulty: 1, audio_text: 'le fils' },
+  { id: 'w017', french: 'la fille',       english: 'the daughter',   type: 'word',   gender: 'f',  category: 'family',    difficulty: 1, audio_text: 'la fille' },
+  { id: 'w018', french: 'le grand-père',  english: 'the grandfather',type: 'word',   gender: 'm',  category: 'family',    difficulty: 1, audio_text: 'le grand-père' },
+  { id: 'w019', french: 'la grand-mère',  english: 'the grandmother',type: 'word',   gender: 'f',  category: 'family',    difficulty: 1, audio_text: 'la grand-mère' },
+  { id: 'w020', french: "l'enfant",       english: 'the child',      type: 'word',   gender: null, category: 'family',    difficulty: 1, audio_text: "l'enfant" },
+
+  // Food basics
+  { id: 'w021', french: 'le pain',        english: 'the bread',      type: 'word',   gender: 'm',  category: 'food',      difficulty: 1, audio_text: 'le pain' },
+  { id: 'w022', french: 'le fromage',     english: 'the cheese',     type: 'word',   gender: 'm',  category: 'food',      difficulty: 1, audio_text: 'le fromage' },
+  { id: 'w023', french: "l'eau",          english: 'the water',      type: 'word',   gender: 'f',  category: 'food',      difficulty: 1, audio_text: "l'eau" },
+  { id: 'w024', french: 'le vin',         english: 'the wine',       type: 'word',   gender: 'm',  category: 'food',      difficulty: 1, audio_text: 'le vin' },
+  { id: 'w025', french: 'le café',        english: 'the coffee',     type: 'word',   gender: 'm',  category: 'food',      difficulty: 1, audio_text: 'le café' },
+  { id: 'w026', french: 'le lait',        english: 'the milk',       type: 'word',   gender: 'm',  category: 'food',      difficulty: 1, audio_text: 'le lait' },
+  { id: 'w027', french: 'la pomme',       english: 'the apple',      type: 'word',   gender: 'f',  category: 'food',      difficulty: 1, audio_text: 'la pomme' },
+  { id: 'w028', french: 'le poulet',      english: 'the chicken',    type: 'word',   gender: 'm',  category: 'food',      difficulty: 1, audio_text: 'le poulet' },
+  { id: 'w029', french: 'le riz',         english: 'the rice',       type: 'word',   gender: 'm',  category: 'food',      difficulty: 1, audio_text: 'le riz' },
+  { id: 'w030', french: 'le sel',         english: 'the salt',       type: 'word',   gender: 'm',  category: 'food',      difficulty: 1, audio_text: 'le sel' },
+
+  // Numbers 1–10
+  { id: 'w031', french: 'un',             english: 'one',            type: 'word',   gender: null, category: 'numbers',   difficulty: 1, audio_text: 'un' },
+  { id: 'w032', french: 'deux',           english: 'two',            type: 'word',   gender: null, category: 'numbers',   difficulty: 1, audio_text: 'deux' },
+  { id: 'w033', french: 'trois',          english: 'three',          type: 'word',   gender: null, category: 'numbers',   difficulty: 1, audio_text: 'trois' },
+  { id: 'w034', french: 'quatre',         english: 'four',           type: 'word',   gender: null, category: 'numbers',   difficulty: 1, audio_text: 'quatre' },
+  { id: 'w035', french: 'cinq',           english: 'five',           type: 'word',   gender: null, category: 'numbers',   difficulty: 1, audio_text: 'cinq' },
+  { id: 'w036', french: 'six',            english: 'six',            type: 'word',   gender: null, category: 'numbers',   difficulty: 1, audio_text: 'six' },
+  { id: 'w037', french: 'sept',           english: 'seven',          type: 'word',   gender: null, category: 'numbers',   difficulty: 1, audio_text: 'sept' },
+  { id: 'w038', french: 'huit',           english: 'eight',          type: 'word',   gender: null, category: 'numbers',   difficulty: 1, audio_text: 'huit' },
+  { id: 'w039', french: 'neuf',           english: 'nine',           type: 'word',   gender: null, category: 'numbers',   difficulty: 1, audio_text: 'neuf' },
+  { id: 'w040', french: 'dix',            english: 'ten',            type: 'word',   gender: null, category: 'numbers',   difficulty: 1, audio_text: 'dix' },
+
+  // Common verbs (infinitive)
+  { id: 'w041', french: 'être',           english: 'to be',          type: 'word',   gender: null, category: 'verbs',     difficulty: 2, audio_text: 'être' },
+  { id: 'w042', french: 'avoir',          english: 'to have',        type: 'word',   gender: null, category: 'verbs',     difficulty: 2, audio_text: 'avoir' },
+  { id: 'w043', french: 'aller',          english: 'to go',          type: 'word',   gender: null, category: 'verbs',     difficulty: 2, audio_text: 'aller' },
+  { id: 'w044', french: 'faire',          english: 'to do / to make',type: 'word',   gender: null, category: 'verbs',     difficulty: 2, audio_text: 'faire' },
+  { id: 'w045', french: 'manger',         english: 'to eat',         type: 'word',   gender: null, category: 'verbs',     difficulty: 1, audio_text: 'manger' },
+  { id: 'w046', french: 'boire',          english: 'to drink',       type: 'word',   gender: null, category: 'verbs',     difficulty: 1, audio_text: 'boire' },
+  { id: 'w047', french: 'parler',         english: 'to speak',       type: 'word',   gender: null, category: 'verbs',     difficulty: 1, audio_text: 'parler' },
+  { id: 'w048', french: 'voir',           english: 'to see',         type: 'word',   gender: null, category: 'verbs',     difficulty: 1, audio_text: 'voir' },
+  { id: 'w049', french: 'vouloir',        english: 'to want',        type: 'word',   gender: null, category: 'verbs',     difficulty: 2, audio_text: 'vouloir' },
+  { id: 'w050', french: 'pouvoir',        english: 'to be able to',  type: 'word',   gender: null, category: 'verbs',     difficulty: 2, audio_text: 'pouvoir' },
+
+  // Around the house
+  { id: 'w051', french: 'la table',       english: 'the table',      type: 'word',   gender: 'f',  category: 'house',     difficulty: 1, audio_text: 'la table' },
+  { id: 'w052', french: 'la chaise',      english: 'the chair',      type: 'word',   gender: 'f',  category: 'house',     difficulty: 1, audio_text: 'la chaise' },
+  { id: 'w053', french: 'la porte',       english: 'the door',       type: 'word',   gender: 'f',  category: 'house',     difficulty: 1, audio_text: 'la porte' },
+  { id: 'w054', french: 'la fenêtre',     english: 'the window',     type: 'word',   gender: 'f',  category: 'house',     difficulty: 1, audio_text: 'la fenêtre' },
+  { id: 'w055', french: 'la maison',      english: 'the house',      type: 'word',   gender: 'f',  category: 'house',     difficulty: 1, audio_text: 'la maison' },
+  { id: 'w056', french: 'le lit',         english: 'the bed',        type: 'word',   gender: 'm',  category: 'house',     difficulty: 1, audio_text: 'le lit' },
+  { id: 'w057', french: 'la cuisine',     english: 'the kitchen',    type: 'word',   gender: 'f',  category: 'house',     difficulty: 1, audio_text: 'la cuisine' },
+  { id: 'w058', french: 'la salle de bain',english: 'the bathroom',  type: 'phrase', gender: 'f',  category: 'house',     difficulty: 1, audio_text: 'la salle de bain' },
+  { id: 'w059', french: 'la chambre',     english: 'the bedroom',    type: 'word',   gender: 'f',  category: 'house',     difficulty: 1, audio_text: 'la chambre' },
+  { id: 'w060', french: 'le salon',       english: 'the living room',type: 'word',   gender: 'm',  category: 'house',     difficulty: 1, audio_text: 'le salon' },
+];

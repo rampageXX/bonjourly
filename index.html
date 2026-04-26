@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Bonjourly">
+  <meta name="theme-color" content="#1B3A5B">
+  <title>Bonjourly</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- ── Start Screen ───────────────────────────────────────────────────── -->
+  <section id="start-screen" class="screen">
+    <div class="start-card animate-fade-up">
+      <div class="app-flag">🇫🇷</div>
+      <h1 class="app-title serif">Bonjourly</h1>
+      <p class="app-subtitle">Learn French Together</p>
+      <div class="start-divider"></div>
+
+      <div class="form-group">
+        <label class="form-label" for="name-input">Your name</label>
+        <input
+          id="name-input"
+          class="form-input"
+          type="text"
+          placeholder="e.g. Sophie"
+          maxlength="20"
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+        >
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">You are…</label>
+        <div class="player-toggle">
+          <button class="toggle-btn" data-player="player1" onclick="selectPlayer(this)">Player 1</button>
+          <button class="toggle-btn" data-player="player2" onclick="selectPlayer(this)">Player 2</button>
+        </div>
+      </div>
+
+      <button class="btn btn-primary btn-full btn-lg" onclick="handleStart()">
+        Commencer →
+      </button>
+    </div>
+  </section>
+
+  <!-- ── Home Screen ────────────────────────────────────────────────────── -->
+  <section id="home-screen" class="screen hidden">
+    <div class="screen-header">
+      <div class="screen-header-inner">
+        <div>
+          <div class="header-title serif">Bonjour, <span id="home-player-name">—</span></div>
+          <div class="header-subtitle">Daily French Duel</div>
+        </div>
+        <div id="home-streak-badge" class="header-badge hidden">🔥 <span id="home-streak-count">0</span></div>
+      </div>
+    </div>
+
+    <div class="screen-content">
+      <!-- Today's duel card -->
+      <div class="duel-card" id="home-duel-card">
+        <div class="duel-date" id="home-date">—</div>
+        <h2 class="duel-title serif">Today's Duel</h2>
+
+        <div class="duel-vs">
+          <div class="duel-player">
+            <div class="duel-player-name" id="home-p1-name">Player 1</div>
+            <div class="duel-player-score" id="home-p1-score">—</div>
+          </div>
+          <div class="duel-sep">vs</div>
+          <div class="duel-player">
+            <div class="duel-player-name" id="home-p2-name">Player 2</div>
+            <div class="duel-player-score" id="home-p2-score">—</div>
+          </div>
+        </div>
+
+        <button class="btn btn-gold btn-full btn-lg" id="play-btn" onclick="startDuel()">
+          ⚔️ Play Today's Duel
+        </button>
+
+        <div id="already-played-msg" class="hidden" style="margin-top:14px; font-size:0.85rem; color:var(--text-mid); text-align:center;">
+          You've played today! Come back tomorrow.
+        </div>
+      </div>
+
+      <!-- Streak row -->
+      <div class="streak-row">
+        <span class="streak-flame">🔥</span>
+        <span class="streak-text">Current streak:</span>
+        <span class="streak-count" id="home-streak-display">0 days</span>
+      </div>
+
+      <!-- Weekly summary -->
+      <div class="summary-card">
+        <div class="summary-title">This week</div>
+        <div class="week-grid" id="week-grid">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Game Screen ────────────────────────────────────────────────────── -->
+  <section id="game-screen" class="screen hidden">
+    <div class="game-progress">
+      <div class="progress-bar">
+        <div class="progress-fill" id="game-progress-fill" style="width:0%"></div>
+      </div>
+      <span class="progress-label" id="game-progress-label">1 / 10</span>
+      <span class="score-live" id="game-score-live">0 pts</span>
+    </div>
+
+    <div class="game-area" id="game-area">
+      <!-- Game content injected by game modules -->
+    </div>
+  </section>
+
+  <!-- ── Result Screen ──────────────────────────────────────────────────── -->
+  <section id="result-screen" class="screen hidden">
+    <div class="result-hero">
+      <div class="result-label">Your score</div>
+      <div class="result-score serif" id="result-score">0</div>
+      <div class="result-correct" id="result-correct">0 / 10 correct</div>
+      <div class="result-outcome outcome-wait" id="result-outcome">Calculating…</div>
+    </div>
+
+    <div class="screen-content">
+      <!-- Opponent result -->
+      <div class="poster-card" style="margin-bottom:16px; text-align:center;">
+        <div class="section-label">Opponent</div>
+        <div id="result-opponent-wrap">
+          <p style="color:var(--text-mid); font-size:0.9rem;" id="result-waiting-msg">
+            Waiting for <span id="result-opponent-name">—</span> to play…
+          </p>
+          <div id="result-opponent-score-wrap" class="hidden">
+            <div style="font-size:0.78rem; color:var(--text-light); margin-bottom:4px;" id="result-opponent-name-label">—</div>
+            <div class="serif" style="font-size:2.4rem; font-weight:700; color:var(--navy);" id="result-opponent-score">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Unlocks toast placeholder -->
+      <div id="result-unlock-wrap" class="hidden poster-card" style="margin-bottom:16px; text-align:center;">
+        <div class="section-label">New unlock!</div>
+        <div id="result-unlock-item" style="font-size:2rem; margin-bottom:6px;"></div>
+        <div id="result-unlock-name" style="font-size:0.88rem; font-weight:600; color:var(--navy);"></div>
+      </div>
+
+      <button class="btn btn-secondary btn-full" onclick="showScreen('home-screen')">
+        Back to Home
+      </button>
+    </div>
+  </section>
+
+  <!-- ── Avatar Screen ──────────────────────────────────────────────────── -->
+  <section id="avatar-screen" class="screen hidden">
+    <div class="screen-header">
+      <div class="screen-header-inner">
+        <div>
+          <div class="header-title serif">Mon Avatar</div>
+          <div class="header-subtitle">Customize your look</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-content">
+      <div class="avatar-stage">
+        <span class="avatar-figure" id="avatar-figure">🧑</span>
+        <div class="avatar-player-name serif" id="avatar-player-name">—</div>
+        <div class="avatar-points" id="avatar-points">0 pts total</div>
+      </div>
+
+      <div class="section-label" style="margin-bottom:12px;">Equipped</div>
+      <div class="equipment-slots" id="equipment-slots">
+        <div class="equipment-slot" data-slot="hat">
+          <span class="slot-icon" id="slot-hat">🎩</span>
+          <span class="slot-label">Hat</span>
+        </div>
+        <div class="equipment-slot" data-slot="top">
+          <span class="slot-icon" id="slot-top">👔</span>
+          <span class="slot-label">Top</span>
+        </div>
+        <div class="equipment-slot" data-slot="bottom">
+          <span class="slot-icon" id="slot-bottom">👖</span>
+          <span class="slot-label">Bottom</span>
+        </div>
+        <div class="equipment-slot" data-slot="shoes">
+          <span class="slot-icon" id="slot-shoes">👟</span>
+          <span class="slot-label">Shoes</span>
+        </div>
+        <div class="equipment-slot" data-slot="accessory">
+          <span class="slot-icon" id="slot-acc">🕶️</span>
+          <span class="slot-label">Extra</span>
+        </div>
+      </div>
+
+      <div class="section-label" style="margin-bottom:12px;">Wardrobe</div>
+      <div class="items-grid" id="items-grid">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Stats Screen ───────────────────────────────────────────────────── -->
+  <section id="stats-screen" class="screen hidden">
+    <div class="screen-header">
+      <div class="screen-header-inner">
+        <div>
+          <div class="header-title serif">Stats</div>
+          <div class="header-subtitle">Your progress</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-content">
+      <div class="stats-tabs">
+        <button class="stats-tab active" onclick="switchStatTab('weekly', this)">Weekly</button>
+        <button class="stats-tab" onclick="switchStatTab('alltime', this)">All-time</button>
+        <button class="stats-tab" onclick="switchStatTab('words', this)">Words</button>
+      </div>
+
+      <div id="stats-weekly">
+        <div class="stat-block">
+          <span class="stat-icon">🏆</span>
+          <div>
+            <div class="stat-label">Days won this week</div>
+            <div class="stat-value serif" id="stats-days-won">—</div>
+          </div>
+        </div>
+        <div class="stat-block">
+          <span class="stat-icon">⭐</span>
+          <div>
+            <div class="stat-label">Weekly points</div>
+            <div class="stat-value serif" id="stats-weekly-pts">—</div>
+          </div>
+        </div>
+        <div class="stat-block">
+          <span class="stat-icon">🔥</span>
+          <div>
+            <div class="stat-label">Current streak</div>
+            <div class="stat-value serif" id="stats-streak">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="stats-alltime" class="hidden">
+        <div class="stat-block">
+          <span class="stat-icon">📅</span>
+          <div>
+            <div class="stat-label">Total days played</div>
+            <div class="stat-value serif" id="stats-total-days">—</div>
+          </div>
+        </div>
+        <div class="stat-block">
+          <span class="stat-icon">💎</span>
+          <div>
+            <div class="stat-label">All-time points</div>
+            <div class="stat-value serif" id="stats-total-pts">—</div>
+          </div>
+        </div>
+        <div class="stat-block">
+          <span class="stat-icon">🔥</span>
+          <div>
+            <div class="stat-label">Longest streak</div>
+            <div class="stat-value serif" id="stats-longest-streak">—</div>
+          </div>
+        </div>
+        <div class="stat-block">
+          <span class="stat-icon">⚔️</span>
+          <div>
+            <div class="stat-label">Head-to-head record</div>
+            <div class="stat-value serif" id="stats-h2h">—</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="stats-words" class="hidden">
+        <div id="word-collection-list">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Bottom Navigation ──────────────────────────────────────────────── -->
+  <nav id="bottom-nav" class="hidden">
+    <button class="nav-btn active" data-screen="home-screen" onclick="navTo('home-screen', this)">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">Home</span>
+    </button>
+    <button class="nav-btn" data-screen="game-screen" onclick="startDuel()">
+      <span class="nav-icon">⚔️</span>
+      <span class="nav-label">Play</span>
+    </button>
+    <button class="nav-btn" data-screen="avatar-screen" onclick="navTo('avatar-screen', this)">
+      <span class="nav-icon">🧑</span>
+      <span class="nav-label">Avatar</span>
+    </button>
+    <button class="nav-btn" data-screen="stats-screen" onclick="navTo('stats-screen', this)">
+      <span class="nav-icon">📊</span>
+      <span class="nav-label">Stats</span>
+    </button>
+  </nav>
+
+  <!-- ── Toast ──────────────────────────────────────────────────────────── -->
+  <div id="toast" class="toast"></div>
+
+  <!-- ── Scripts ───────────────────────────────────────────────────────── -->
+  <script src="lib/storage.js"></script>
+  <script src="lib/levenshtein.js"></script>
+  <script src="lib/audio.js"></script>
+  <script src="data/vocab.js"></script>
+  <script src="games/matchPairs.js"></script>
+  <script src="games/listenAndPick.js"></script>
+  <script src="games/typeTranslation.js"></script>
+  <script src="lib/scoring.js"></script>
+  <script src="lib/dailySelection.js"></script>
+  <script src="games/dailyDuel.js"></script>
+  <script src="lib/wordStrength.js"></script>
+  <script src="lib/streaks.js"></script>
+  <script src="lib/jsonbin.js"></script>
+  <script src="data/avatarItems.js"></script>
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
