@@ -806,9 +806,9 @@ body {
 }
 
 .nav-label {
-  font-size: 0.62rem;
+  font-size: 0.58rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--text-light);
   transition: color 0.18s;
@@ -883,6 +883,80 @@ body {
 .animate-pop    { animation: pop 0.3s ease; }
 .animate-fade-up { animation: fadeInUp 0.35s ease both; }
 .animate-shake  { animation: shake 0.4s ease; }
+
+/* ─── Word Cards ─────────────────────────────────────────────────────────── */
+.word-card {
+  background: white;
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--cream-dark);
+  transition: border-color 0.18s;
+}
+
+.word-card:hover { border-color: rgba(212,175,55,0.4); }
+
+.word-card-text { flex: 1; min-width: 0; }
+
+.word-french {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--navy);
+  margin-bottom: 3px;
+}
+
+.word-english {
+  font-size: 0.85rem;
+  color: var(--text-mid);
+  font-weight: 400;
+}
+
+.word-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.word-speak-btn {
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  border: 2px solid var(--navy);
+  background: white;
+  color: var(--navy);
+  font-size: 1.1rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.18s;
+  -webkit-appearance: none;
+}
+
+.word-speak-btn:active,
+.word-speak-btn.speaking {
+  background: var(--navy);
+  color: white;
+  transform: scale(0.93);
+}
+
+.word-category {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-light);
+  background: var(--cream-dark);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
 
 /* ─── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 380px) {

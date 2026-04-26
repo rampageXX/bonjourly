@@ -104,6 +104,28 @@
     </div>
   </section>
 
+  <!-- ── Words Screen ──────────────────────────────────────────────────── -->
+  <section id="words-screen" class="screen hidden">
+    <div class="screen-header">
+      <div class="screen-header-inner">
+        <div>
+          <div class="header-title serif">Les Mots</div>
+          <div class="header-subtitle">Your word list</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="screen-content">
+      <div class="stats-tabs" style="margin-bottom:16px;">
+        <button class="stats-tab active" id="words-tab-today" onclick="switchWordsTab('today', this)">Today</button>
+        <button class="stats-tab" id="words-tab-week" onclick="switchWordsTab('week', this)">This Week</button>
+      </div>
+
+      <div id="words-today-list"></div>
+      <div id="words-week-list" class="hidden"></div>
+    </div>
+  </section>
+
   <!-- ── Game Screen ────────────────────────────────────────────────────── -->
   <section id="game-screen" class="screen hidden">
     <div class="game-progress">
@@ -220,7 +242,6 @@
       <div class="stats-tabs">
         <button class="stats-tab active" onclick="switchStatTab('weekly', this)">Weekly</button>
         <button class="stats-tab" onclick="switchStatTab('alltime', this)">All-time</button>
-        <button class="stats-tab" onclick="switchStatTab('words', this)">Words</button>
       </div>
 
       <div id="stats-weekly">
@@ -278,11 +299,6 @@
         </div>
       </div>
 
-      <div id="stats-words" class="hidden">
-        <div id="word-collection-list">
-          <!-- Populated by JS -->
-        </div>
-      </div>
     </div>
   </section>
 
@@ -291,6 +307,10 @@
     <button class="nav-btn active" data-screen="home-screen" onclick="navTo('home-screen', this)">
       <span class="nav-icon">🏠</span>
       <span class="nav-label">Home</span>
+    </button>
+    <button class="nav-btn" data-screen="words-screen" onclick="navTo('words-screen', this)">
+      <span class="nav-icon">📖</span>
+      <span class="nav-label">Words</span>
     </button>
     <button class="nav-btn" data-screen="game-screen" onclick="startDuel()">
       <span class="nav-icon">⚔️</span>

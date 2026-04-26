@@ -39,6 +39,7 @@ function navTo(screenId, btn) {
   showScreen(screenId);
   setActiveNav(btn);
   if (screenId === 'home-screen')   renderHome();
+  if (screenId === 'words-screen')  renderWords();
   if (screenId === 'avatar-screen') renderAvatar();
   if (screenId === 'stats-screen')  renderStats();
 }
@@ -187,6 +188,147 @@ function renderWeekGrid(blob) {
   });
 }
 
+/* ── Words Screen ─────────────────────────────────────────────────────────── */
+function renderWords() {
+  // Default to Today tab
+  switchWordsTab('today', document.getElementById('words-tab-today'));
+}
+
+function switchWordsTab(tab, btn) {
+  document.getElementById('words-today-list').classList.toggle('hidden', tab !== 'today');
+  document.getElementById('words-week-list').classList.toggle('hidden', tab !== 'week');
+  document.querySelectorAll('#words-screen .stats-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  if (tab === 'today') renderTodayWords();
+  else                 renderWeekWords();
+}
+
+function getTodayWordList() {
+  const today = getTodayString();
+  const cached = getLocal('words_' + today);
+  if (cached) return cached.map(id => VOCABULARY.find(w => w.id === id)).filter(Boolean);
+  // Compute and cache if not yet saved
+  const strengths = getLocal('strengths') || {};
+  const words = pickTodaysWords(today, strengths);
+  setLocal('words_' + today, words.map(w => w.id));
+  return words;
+}
+
+function renderTodayWords() {
+  const list = document.getElementById('words-today-list');
+  clearEl(list);
+
+  const words = getTodayWordList();
+  const today = getTodayString();
+  const played = !!getLocal('result_' + today);
+
+  const banner = document.createElement('p');
+  banner.style.cssText = 'font-size:0.78rem; color:var(--text-mid); margin-bottom:14px; text-align:center;';
+  banner.textContent = played
+    ? "Today's 10 words — you've already played!"
+    : "Study these 10 words before your duel today";
+  list.appendChild(banner);
+
+  const strengths = getLocal('strengths') || {};
+  words.forEach(w => list.appendChild(buildWordCard(w, strengths)));
+}
+
+function renderWeekWords() {
+  const list = document.getElementById('words-week-list');
+  clearEl(list);
+
+  // Collect unique word IDs from the past 7 days
+  const seenIds = new Set();
+  const today = new Date();
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const ds = toDateString(d);
+    const saved = getLocal('words_' + ds);
+    if (saved) saved.forEach(id => seenIds.add(id));
+  }
+
+  const strengths = getLocal('strengths') || {};
+  const words = VOCABULARY.filter(w => seenIds.has(w.id));
+
+  if (words.length === 0) {
+    const msg = document.createElement('p');
+    msg.style.cssText = 'color:var(--text-light); font-size:0.85rem; text-align:center; padding:32px 0;';
+    msg.textContent = 'No words yet — play your first duel to start tracking!';
+    list.appendChild(msg);
+    return;
+  }
+
+  const banner = document.createElement('p');
+  banner.style.cssText = 'font-size:0.78rem; color:var(--text-mid); margin-bottom:14px; text-align:center;';
+  banner.textContent = words.length + ' words from the past 7 days';
+  list.appendChild(banner);
+
+  words.forEach(w => list.appendChild(buildWordCard(w, strengths)));
+}
+
+function buildWordCard(word, strengths) {
+  const s = strengths[word.id]?.strength;
+  const pillClass  = s === undefined ? '' : s >= 80 ? 'strength-strong' : s >= 40 ? 'strength-learning' : s >= 10 ? 'strength-fading' : 'strength-forgotten';
+  const pillLabel  = s === undefined ? 'New' : s >= 80 ? 'Strong' : s >= 40 ? 'Learning' : s >= 10 ? 'Fading' : 'Forgotten';
+
+  const card = document.createElement('div');
+  card.className = 'word-card';
+
+  // Speak button
+  const speakBtn = document.createElement('button');
+  speakBtn.className = 'word-speak-btn';
+  speakBtn.setAttribute('aria-label', 'Pronounce ' + word.french);
+  speakBtn.textContent = '🔊';
+  speakBtn.addEventListener('click', () => {
+    speakBtn.classList.add('speaking');
+    speak(word.audio_text, () => speakBtn.classList.remove('speaking'));
+  });
+
+  // Text content
+  const textEl = document.createElement('div');
+  textEl.className = 'word-card-text';
+
+  const frEl = document.createElement('div');
+  frEl.className = 'word-french';
+  frEl.textContent = word.french;
+
+  const enEl = document.createElement('div');
+  enEl.className = 'word-english';
+  enEl.textContent = word.english;
+
+  const metaEl = document.createElement('div');
+  metaEl.className = 'word-meta';
+
+  const catEl = document.createElement('span');
+  catEl.className = 'word-category';
+  catEl.textContent = word.category;
+
+  if (pillClass) {
+    const pill = document.createElement('span');
+    pill.className = 'word-strength-pill ' + pillClass;
+    pill.textContent = pillLabel;
+    metaEl.appendChild(catEl);
+    metaEl.appendChild(pill);
+  } else {
+    const newPill = document.createElement('span');
+    newPill.className = 'word-strength-pill';
+    newPill.style.cssText = 'background:var(--cream-dark); color:var(--text-light);';
+    newPill.textContent = 'New';
+    metaEl.appendChild(catEl);
+    metaEl.appendChild(newPill);
+  }
+
+  textEl.appendChild(frEl);
+  textEl.appendChild(enEl);
+  textEl.appendChild(metaEl);
+
+  card.appendChild(speakBtn);
+  card.appendChild(textEl);
+  return card;
+}
+
 /* ── Duel Entry Point ─────────────────────────────────────────────────────── */
 function startDuel() {
   const today = getTodayString();
@@ -197,8 +339,7 @@ function startDuel() {
   }
   showScreen('game-screen');
 
-  const strengths = getLocal('strengths') || {};
-  const words = pickTodaysWords(today, strengths);
+  const words = getTodayWordList();  // computes + caches word list for this day
 
   document.getElementById('game-progress-fill').style.width = '0%';
   document.getElementById('game-progress-label').textContent = '1 / 10';
@@ -412,11 +553,10 @@ async function renderStats() {
       .forEach(id => { document.getElementById(id).textContent = 'Offline'; });
   }
 
-  renderWordCollection();
 }
 
 function switchStatTab(tab, btn) {
-  ['weekly', 'alltime', 'words'].forEach(t => {
+  ['weekly', 'alltime'].forEach(t => {
     document.getElementById('stats-' + t).classList.add('hidden');
   });
   document.getElementById('stats-' + tab).classList.remove('hidden');
