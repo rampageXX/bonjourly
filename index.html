@@ -186,42 +186,75 @@
           <div class="header-title serif">Mon Avatar</div>
           <div class="header-subtitle">Customize your look</div>
         </div>
+        <div>
+          <div style="font-size:0.72rem;color:rgba(255,255,255,0.6);text-align:right;">Total points</div>
+          <div class="serif" style="color:var(--gold);font-weight:700;font-size:1.1rem;text-align:right;" id="avatar-points">0</div>
+        </div>
       </div>
     </div>
 
     <div class="screen-content">
-      <div class="avatar-stage">
-        <span class="avatar-figure" id="avatar-figure">🧑</span>
-        <div class="avatar-player-name serif" id="avatar-player-name">—</div>
-        <div class="avatar-points" id="avatar-points">0 pts total</div>
+
+      <!-- Visual avatar doll -->
+      <div class="avatar-doll-stage">
+        <div class="avatar-doll" id="avatar-doll">
+
+          <!-- Static SVG body -->
+          <svg class="avatar-svg" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg">
+            <!-- Hair -->
+            <ellipse cx="50" cy="11" rx="17" ry="11" fill="#3D2B1F"/>
+            <!-- Head (skin) -->
+            <circle cx="50" cy="26" r="18" fill="#FDBCB4"/>
+            <!-- Ears -->
+            <circle cx="32" cy="27" r="5" fill="#FDBCB4"/>
+            <circle cx="68" cy="27" r="5" fill="#FDBCB4"/>
+            <!-- Hair top overlay (on top of head) -->
+            <ellipse cx="50" cy="14" rx="16" ry="9" fill="#3D2B1F"/>
+            <!-- Eyes -->
+            <circle cx="44" cy="24" r="2.5" fill="#1B3A5B"/>
+            <circle cx="56" cy="24" r="2.5" fill="#1B3A5B"/>
+            <circle cx="44.8" cy="23.2" r="0.9" fill="white"/>
+            <circle cx="56.8" cy="23.2" r="0.9" fill="white"/>
+            <!-- Smile -->
+            <path d="M44 31 Q50 36 56 31" stroke="#C8102E" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+            <!-- Neck -->
+            <rect x="45" y="43" width="10" height="9" fill="#FDBCB4"/>
+            <!-- Body / default top -->
+            <rect x="26" y="51" width="48" height="62" rx="10" fill="#1B3A5B"/>
+            <!-- Left arm -->
+            <rect x="4"  y="54" width="24" height="11" rx="5.5" fill="#1B3A5B"/>
+            <!-- Right arm -->
+            <rect x="72" y="54" width="24" height="11" rx="5.5" fill="#1B3A5B"/>
+            <!-- Left hand -->
+            <circle cx="9"  cy="59" r="7" fill="#FDBCB4"/>
+            <!-- Right hand -->
+            <circle cx="91" cy="59" r="7" fill="#FDBCB4"/>
+            <!-- Left leg / default pants -->
+            <rect x="28" y="112" width="19" height="54" rx="7" fill="#254E7A"/>
+            <!-- Right leg -->
+            <rect x="53" y="112" width="19" height="54" rx="7" fill="#254E7A"/>
+            <!-- Left shoe -->
+            <ellipse cx="37" cy="166" rx="15" ry="7" fill="#2C1810"/>
+            <!-- Right shoe -->
+            <ellipse cx="63" cy="166" rx="15" ry="7" fill="#2C1810"/>
+          </svg>
+
+          <!-- Equipment emoji overlays — JS sets textContent only -->
+          <div class="avatar-layer" id="layer-hat"       aria-label="Hat slot"></div>
+          <div class="avatar-layer" id="layer-accessory" aria-label="Accessory slot"></div>
+          <div class="avatar-layer" id="layer-top"       aria-label="Top slot"></div>
+          <div class="avatar-layer" id="layer-bottom"    aria-label="Bottom slot"></div>
+          <div class="avatar-layer" id="layer-shoes"     aria-label="Shoes slot"></div>
+        </div>
+
+        <div style="text-align:center; margin-top:10px;">
+          <div class="serif" style="font-size:1.1rem; font-weight:700; color:white;" id="avatar-player-name">—</div>
+        </div>
       </div>
 
-      <div class="section-label" style="margin-bottom:12px;">Equipped</div>
-      <div class="equipment-slots" id="equipment-slots">
-        <div class="equipment-slot" data-slot="hat">
-          <span class="slot-icon" id="slot-hat">🎩</span>
-          <span class="slot-label">Hat</span>
-        </div>
-        <div class="equipment-slot" data-slot="top">
-          <span class="slot-icon" id="slot-top">👔</span>
-          <span class="slot-label">Top</span>
-        </div>
-        <div class="equipment-slot" data-slot="bottom">
-          <span class="slot-icon" id="slot-bottom">👖</span>
-          <span class="slot-label">Bottom</span>
-        </div>
-        <div class="equipment-slot" data-slot="shoes">
-          <span class="slot-icon" id="slot-shoes">👟</span>
-          <span class="slot-label">Shoes</span>
-        </div>
-        <div class="equipment-slot" data-slot="accessory">
-          <span class="slot-icon" id="slot-acc">🕶️</span>
-          <span class="slot-label">Extra</span>
-        </div>
-      </div>
-
-      <div class="section-label" style="margin-bottom:12px;">Wardrobe</div>
-      <div class="items-grid" id="items-grid">
+      <!-- Wardrobe -->
+      <div class="section-label" style="margin:18px 0 12px;">Wardrobe</div>
+      <div class="items-grid-v2" id="items-grid">
         <!-- Populated by JS -->
       </div>
     </div>

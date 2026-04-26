@@ -437,55 +437,106 @@ async function renderAvatar() {
   document.getElementById('avatar-player-name').textContent = currentPlayer.name;
 
   const blob = await getSharedData();
-  const myData   = blob?.players?.[myId] || {};
-  const totalPts = myData.total_points || 0;
-  const equipped = myData.avatar_config?.items_equipped || {};
+  const myData      = blob?.players?.[myId] || {};
+  const totalPts    = myData.total_points || 0;
+  const equipped    = myData.avatar_config?.items_equipped || {};
   const unlockedIds = blob?.unlocked_items?.[myId] || [];
+  const streak      = (getLocal('streak') || {}).current || 0;
 
-  document.getElementById('avatar-points').textContent = totalPts.toLocaleString() + ' pts total';
+  document.getElementById('avatar-points').textContent = totalPts.toLocaleString();
 
-  // Update slot icons
-  ['hat', 'top', 'bottom', 'shoes', 'accessory'].forEach(slot => {
+  // Update visual doll layers (textContent only — no innerHTML)
+  const SLOTS = ['hat', 'top', 'bottom', 'shoes', 'accessory'];
+  SLOTS.forEach(slot => {
+    const el = document.getElementById('layer-' + slot);
+    if (!el) return;
     const equippedId = equipped[slot];
     const item = equippedId ? getItemById(equippedId) : null;
-    const defaults = { hat:'🎩', top:'👔', bottom:'👖', shoes:'👟', accessory:'🕶️' };
-    const el = document.getElementById('slot-' + (slot === 'accessory' ? 'acc' : slot));
-    if (el) el.textContent = item ? item.emoji : defaults[slot];
+    el.textContent = item ? item.emoji : '';
+    // Shoes: show two shoes side by side
+    if (slot === 'shoes' && item) el.textContent = item.emoji + item.emoji;
   });
 
-  // Render items grid
+  // Render wardrobe grid
   const grid = document.getElementById('items-grid');
   clearEl(grid);
-
-  const streak = (getLocal('streak') || {}).current || 0;
 
   AVATAR_ITEMS.forEach(item => {
     const isUnlocked = unlockedIds.includes(item.id);
     const isEquipped = equipped[item.slot] === item.id;
-    const costLabel  = item.costPts ? item.costPts.toLocaleString() + ' pts' : (item.streakReq + '-day streak');
 
     const card = document.createElement('div');
-    card.className = 'item-card' + (isEquipped ? ' equipped' : '') + (isUnlocked ? '' : ' locked');
+    card.className = [
+      'item-card-v2',
+      'rarity-' + item.rarity,
+      isEquipped ? 'equipped' : '',
+      isUnlocked ? ''         : 'locked',
+    ].filter(Boolean).join(' ');
 
-    const emojiEl = document.createElement('span');
-    emojiEl.className = 'item-emoji';
-    emojiEl.textContent = item.emoji;
+    // Rarity badge (top-left)
+    const rarityBadge = document.createElement('span');
+    rarityBadge.className = 'item-rarity-badge badge-' + item.rarity;
+    rarityBadge.textContent = item.rarity;
+    card.appendChild(rarityBadge);
 
-    const nameEl = document.createElement('div');
-    nameEl.className = 'item-name';
-    nameEl.textContent = item.name;
-
-    const costEl = document.createElement('div');
-    costEl.className = 'item-cost';
-    costEl.textContent = isUnlocked ? (isEquipped ? '✓ Equipped' : 'Tap to equip') : costLabel;
-
-    card.appendChild(emojiEl);
-    card.appendChild(nameEl);
-    card.appendChild(costEl);
-
-    if (isUnlocked && !isEquipped) {
-      card.addEventListener('click', () => equipItem(item, equipped, blob, myId));
+    // Equipped badge (top-right)
+    if (isEquipped) {
+      const eqBadge = document.createElement('span');
+      eqBadge.className = 'item-equipped-badge';
+      eqBadge.textContent = 'On';
+      card.appendChild(eqBadge);
     }
+
+    // Emoji
+    const emojiEl = document.createElement('span');
+    emojiEl.className = 'item-v2-emoji';
+    emojiEl.textContent = item.emoji;
+    card.appendChild(emojiEl);
+
+    // Name
+    const nameEl = document.createElement('div');
+    nameEl.className = 'item-v2-name';
+    nameEl.textContent = item.name;
+    card.appendChild(nameEl);
+
+    // Slot label
+    const slotEl = document.createElement('div');
+    slotEl.className = 'item-v2-slot';
+    slotEl.textContent = item.slot;
+    card.appendChild(slotEl);
+
+    if (isUnlocked) {
+      const statusEl = document.createElement('div');
+      statusEl.className = 'item-v2-status';
+      statusEl.textContent = isEquipped ? '✓ Wearing' : 'Tap to wear';
+      card.appendChild(statusEl);
+      if (!isEquipped) {
+        card.addEventListener('click', () => equipItem(item, equipped, blob, myId));
+      }
+    } else {
+      // Progress toward unlock
+      const target    = item.costPts || (item.streakReq * 500); // rough pts equiv for display
+      const current   = item.costPts ? totalPts : streak;
+      const goal      = item.costPts ? item.costPts : item.streakReq;
+      const pct       = Math.min(100, Math.round((current / goal) * 100));
+      const costLabel = item.costPts
+        ? totalPts.toLocaleString() + ' / ' + item.costPts.toLocaleString() + ' pts'
+        : streak + ' / ' + item.streakReq + ' day streak';
+
+      const statusEl = document.createElement('div');
+      statusEl.className = 'item-v2-status';
+      statusEl.textContent = costLabel;
+      card.appendChild(statusEl);
+
+      const bar = document.createElement('div');
+      bar.className = 'item-progress';
+      const fill = document.createElement('div');
+      fill.className = 'item-progress-fill';
+      fill.style.width = pct + '%';
+      bar.appendChild(fill);
+      card.appendChild(bar);
+    }
+
     grid.appendChild(card);
   });
 }
@@ -496,7 +547,7 @@ async function equipItem(item, currentEquipped, blob, myId) {
   blob.players[myId].avatar_config = blob.players[myId].avatar_config || {};
   blob.players[myId].avatar_config.items_equipped = currentEquipped;
   await writeBlob(blob);
-  showToast('Equipped ' + item.emoji + ' ' + item.name);
+  showToast(item.emoji + ' ' + item.name + ' equipped!');
   renderAvatar();
 }
 
