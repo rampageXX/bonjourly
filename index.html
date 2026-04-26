@@ -199,16 +199,29 @@
       <div class="avatar-doll-stage">
         <div class="avatar-doll" id="avatar-doll">
 
-          <!-- Static SVG body -->
-          <svg class="avatar-svg" viewBox="0 0 100 200" xmlns="http://www.w3.org/2000/svg">
-            <!-- Hair -->
+          <!-- SVG body — items drawn directly into #av-overlays by JS -->
+          <svg id="avatar-svg" class="avatar-svg" viewBox="0 -30 100 230"
+               xmlns="http://www.w3.org/2000/svg" overflow="visible">
+            <defs>
+              <clipPath id="body-clip">
+                <rect x="26" y="51" width="48" height="62" rx="10"/>
+              </clipPath>
+              <clipPath id="arm-l-clip">
+                <rect x="4" y="54" width="24" height="11" rx="5.5"/>
+              </clipPath>
+              <clipPath id="arm-r-clip">
+                <rect x="72" y="54" width="24" height="11" rx="5.5"/>
+              </clipPath>
+            </defs>
+
+            <!-- Hair (back layer) -->
             <ellipse cx="50" cy="11" rx="17" ry="11" fill="#3D2B1F"/>
-            <!-- Head (skin) -->
+            <!-- Head -->
             <circle cx="50" cy="26" r="18" fill="#FDBCB4"/>
             <!-- Ears -->
             <circle cx="32" cy="27" r="5" fill="#FDBCB4"/>
             <circle cx="68" cy="27" r="5" fill="#FDBCB4"/>
-            <!-- Hair top overlay (on top of head) -->
+            <!-- Hair front -->
             <ellipse cx="50" cy="14" rx="16" ry="9" fill="#3D2B1F"/>
             <!-- Eyes -->
             <circle cx="44" cy="24" r="2.5" fill="#1B3A5B"/>
@@ -219,32 +232,28 @@
             <path d="M44 31 Q50 36 56 31" stroke="#C8102E" stroke-width="1.5" fill="none" stroke-linecap="round"/>
             <!-- Neck -->
             <rect x="45" y="43" width="10" height="9" fill="#FDBCB4"/>
-            <!-- Body / default top -->
-            <rect x="26" y="51" width="48" height="62" rx="10" fill="#1B3A5B"/>
-            <!-- Left arm -->
-            <rect x="4"  y="54" width="24" height="11" rx="5.5" fill="#1B3A5B"/>
-            <!-- Right arm -->
-            <rect x="72" y="54" width="24" height="11" rx="5.5" fill="#1B3A5B"/>
+            <!-- Body (recolorable) -->
+            <rect id="av-body" x="26" y="51" width="48" height="62" rx="10" fill="#1B3A5B"/>
+            <!-- Left arm (recolorable) -->
+            <rect id="av-arm-l" x="4" y="54" width="24" height="11" rx="5.5" fill="#1B3A5B"/>
+            <!-- Right arm (recolorable) -->
+            <rect id="av-arm-r" x="72" y="54" width="24" height="11" rx="5.5" fill="#1B3A5B"/>
             <!-- Left hand -->
-            <circle cx="9"  cy="59" r="7" fill="#FDBCB4"/>
+            <circle cx="9" cy="59" r="7" fill="#FDBCB4"/>
             <!-- Right hand -->
             <circle cx="91" cy="59" r="7" fill="#FDBCB4"/>
-            <!-- Left leg / default pants -->
-            <rect x="28" y="112" width="19" height="54" rx="7" fill="#254E7A"/>
-            <!-- Right leg -->
-            <rect x="53" y="112" width="19" height="54" rx="7" fill="#254E7A"/>
-            <!-- Left shoe -->
-            <ellipse cx="37" cy="166" rx="15" ry="7" fill="#2C1810"/>
-            <!-- Right shoe -->
-            <ellipse cx="63" cy="166" rx="15" ry="7" fill="#2C1810"/>
-          </svg>
+            <!-- Left leg (recolorable) -->
+            <rect id="av-leg-l" x="28" y="112" width="19" height="54" rx="7" fill="#254E7A"/>
+            <!-- Right leg (recolorable) -->
+            <rect id="av-leg-r" x="53" y="112" width="19" height="54" rx="7" fill="#254E7A"/>
+            <!-- Left shoe (recolorable) -->
+            <ellipse id="av-shoe-l" cx="37" cy="166" rx="15" ry="7" fill="#2C1810"/>
+            <!-- Right shoe (recolorable) -->
+            <ellipse id="av-shoe-r" cx="63" cy="166" rx="15" ry="7" fill="#2C1810"/>
 
-          <!-- Equipment emoji overlays — JS sets textContent only -->
-          <div class="avatar-layer" id="layer-hat"       aria-label="Hat slot"></div>
-          <div class="avatar-layer" id="layer-accessory" aria-label="Accessory slot"></div>
-          <div class="avatar-layer" id="layer-top"       aria-label="Top slot"></div>
-          <div class="avatar-layer" id="layer-bottom"    aria-label="Bottom slot"></div>
-          <div class="avatar-layer" id="layer-shoes"     aria-label="Shoes slot"></div>
+            <!-- Dynamic item overlays added by JS -->
+            <g id="av-overlays"></g>
+          </svg>
         </div>
 
         <div style="text-align:center; margin-top:10px;">
@@ -335,6 +344,51 @@
     </div>
   </section>
 
+  <!-- ── Journey Screen ────────────────────────────────────────────────── -->
+  <section id="journey-screen" class="screen hidden">
+    <div class="screen-header">
+      <div class="screen-header-inner">
+        <div>
+          <div class="header-title serif">France Journey</div>
+          <div class="header-subtitle">Travel as you master words</div>
+        </div>
+        <div class="journey-mastery-badge">
+          <span id="journey-mastered-count">0</span> mastered
+        </div>
+      </div>
+    </div>
+    <div class="screen-content">
+
+      <!-- Map + region list (default view) -->
+      <div id="journey-map-view">
+        <div class="journey-map-wrap">
+          <svg class="journey-map" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <!-- Stylised France hexagone outline -->
+            <path d="M28,12 L62,8 L82,18 L88,38 L78,58 L82,76 L66,90 L42,92 L22,80 L14,58 L18,32 Z"
+                  fill="var(--cream-dark)" stroke="var(--navy)" stroke-width="0.8" stroke-linejoin="round"/>
+            <!-- Region pins added by JS -->
+            <g id="journey-pins"></g>
+          </svg>
+        </div>
+        <div id="journey-region-list"></div>
+      </div>
+
+      <!-- Region word list (shown when a region is tapped) -->
+      <div id="journey-region-detail" class="hidden">
+        <button class="back-btn" onclick="backToJourneyMap()">&#8592; Back to map</button>
+        <div class="region-detail-header">
+          <span class="region-detail-flag" id="region-detail-flag"></span>
+          <div>
+            <div class="serif region-detail-name" id="region-detail-name"></div>
+            <div class="region-detail-subtitle" id="region-detail-subtitle"></div>
+          </div>
+        </div>
+        <div id="region-detail-words"></div>
+      </div>
+
+    </div>
+  </section>
+
   <!-- ── Bottom Navigation ──────────────────────────────────────────────── -->
   <nav id="bottom-nav" class="hidden">
     <button class="nav-btn active" data-screen="home-screen" onclick="navTo('home-screen', this)">
@@ -344,6 +398,10 @@
     <button class="nav-btn" data-screen="words-screen" onclick="navTo('words-screen', this)">
       <span class="nav-icon">📖</span>
       <span class="nav-label">Words</span>
+    </button>
+    <button class="nav-btn" data-screen="journey-screen" onclick="navTo('journey-screen', this)">
+      <span class="nav-icon">🗺️</span>
+      <span class="nav-label">Journey</span>
     </button>
     <button class="nav-btn" data-screen="game-screen" onclick="startDuel()">
       <span class="nav-icon">⚔️</span>
@@ -367,6 +425,7 @@
   <script src="lib/levenshtein.js"></script>
   <script src="lib/audio.js"></script>
   <script src="data/vocab.js"></script>
+  <script src="data/regions.js"></script>
   <script src="games/matchPairs.js"></script>
   <script src="games/listenAndPick.js"></script>
   <script src="games/typeTranslation.js"></script>

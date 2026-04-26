@@ -38,10 +38,11 @@ function showScreen(id, animate = true) {
 function navTo(screenId, btn) {
   showScreen(screenId);
   setActiveNav(btn);
-  if (screenId === 'home-screen')   renderHome();
-  if (screenId === 'words-screen')  renderWords();
-  if (screenId === 'avatar-screen') renderAvatar();
-  if (screenId === 'stats-screen')  renderStats();
+  if (screenId === 'home-screen')    renderHome();
+  if (screenId === 'words-screen')   renderWords();
+  if (screenId === 'journey-screen') renderJourney();
+  if (screenId === 'avatar-screen')  renderAvatar();
+  if (screenId === 'stats-screen')   renderStats();
 }
 
 function setActiveNav(activeBtn) {
@@ -389,19 +390,21 @@ async function showResult(result) {
     showOpponentResult(result.score, opResult.score, opName);
   }
 
-  // Check unlocks
+  // Check avatar item unlocks
   if (blob) {
     const myData   = blob.players[myId] || {};
     const unlocked = blob.unlocked_items?.[myId] || [];
     const newItems = getUnlockableItems(myData.total_points || 0, (getLocal('streak') || {}).current || 0, unlocked);
     if (newItems.length > 0) {
       showUnlockToast(newItems[0]);
-      // Persist unlocks
       newItems.forEach(item => { if (!unlocked.includes(item.id)) unlocked.push(item.id); });
       blob.unlocked_items[myId] = unlocked;
       writeBlob(blob);
     }
   }
+
+  // Check region unlocks
+  if (blob) await checkRegionUnlocks(blob);
 }
 
 function showOpponentResult(myScore, opScore, opName) {
@@ -430,6 +433,323 @@ function showUnlockToast(item) {
   showToast('🎉 New item unlocked: ' + item.name, 3500);
 }
 
+/* ── Journey Screen ───────────────────────────────────────────────────────── */
+async function renderJourney() {
+  if (!currentPlayer) return;
+  const myId = currentPlayer.id;
+  const blob = await getSharedData();
+  const unlockedIds = blob?.unlocked_regions?.[myId] || ['paris'];
+  const mastered    = getMasteredCount();
+
+  document.getElementById('journey-mastered-count').textContent = mastered;
+
+  // Always return to map view when tab is tapped
+  document.getElementById('journey-map-view').classList.remove('hidden');
+  document.getElementById('journey-region-detail').classList.add('hidden');
+
+  // ── SVG map pins ─────────────────────────────────────────────────────────
+  const pinsG = document.getElementById('journey-pins');
+  while (pinsG.firstChild) pinsG.removeChild(pinsG.firstChild);
+
+  REGIONS.forEach(r => {
+    const isUnlocked = unlockedIds.includes(r.id);
+
+    // Outer glow ring for unlocked pins
+    if (isUnlocked) {
+      pinsG.appendChild(svgEl('circle', {
+        cx: r.mapX, cy: r.mapY, r: 6.5,
+        fill: 'rgba(200,16,46,0.18)',
+      }));
+    }
+    // Pin circle
+    pinsG.appendChild(svgEl('circle', {
+      cx: r.mapX, cy: r.mapY, r: 4.5,
+      fill: isUnlocked ? 'var(--burgundy)' : '#C0C0C0',
+      stroke: 'white', 'stroke-width': '1',
+    }));
+    // Flag emoji label
+    const lbl = svgEl('text', {
+      x: r.mapX, y: r.mapY - 7,
+      'text-anchor': 'middle', 'font-size': '6', fill: 'var(--navy)',
+      'font-family': 'Inter, sans-serif', 'font-weight': '600',
+    });
+    lbl.textContent = r.name;
+    pinsG.appendChild(lbl);
+  });
+
+  // ── Region list cards ─────────────────────────────────────────────────────
+  const list = document.getElementById('journey-region-list');
+  clearEl(list);
+
+  REGIONS.forEach(r => {
+    const isUnlocked = unlockedIds.includes(r.id);
+
+    const card = document.createElement('div');
+    card.className = 'region-card' + (isUnlocked ? '' : ' locked');
+
+    const flagEl = document.createElement('span');
+    flagEl.className = 'region-card-flag';
+    flagEl.textContent = r.flag;
+
+    const infoEl = document.createElement('div');
+    infoEl.className = 'region-card-info';
+
+    const nameEl = document.createElement('div');
+    nameEl.className = 'serif region-card-name';
+    nameEl.textContent = r.name;
+
+    const subEl = document.createElement('div');
+    subEl.className = 'region-card-sub';
+    subEl.textContent = r.subtitle;
+
+    infoEl.appendChild(nameEl);
+    infoEl.appendChild(subEl);
+
+    const statusEl = document.createElement('div');
+    statusEl.className = 'region-card-status';
+
+    if (isUnlocked) {
+      statusEl.className += ' status-unlocked';
+      statusEl.textContent = 'Unlocked ✓';
+    } else {
+      const remaining = Math.max(0, r.masteryReq - mastered);
+      statusEl.textContent = remaining + ' more to unlock';
+    }
+
+    card.appendChild(flagEl);
+    card.appendChild(infoEl);
+    card.appendChild(statusEl);
+
+    if (isUnlocked) {
+      card.addEventListener('click', () => showRegionWords(r.id));
+    }
+
+    list.appendChild(card);
+  });
+}
+
+function showRegionWords(regionId) {
+  document.getElementById('journey-map-view').classList.add('hidden');
+  document.getElementById('journey-region-detail').classList.remove('hidden');
+
+  const region = REGIONS.find(r => r.id === regionId);
+  document.getElementById('region-detail-flag').textContent = region.flag;
+  document.getElementById('region-detail-name').textContent = region.name;
+  document.getElementById('region-detail-subtitle').textContent = region.subtitle;
+
+  const words     = getRegionWords(regionId);
+  const strengths = getLocal('strengths') || {};
+  const wordsEl   = document.getElementById('region-detail-words');
+  clearEl(wordsEl);
+  words.forEach(w => wordsEl.appendChild(buildWordCard(w, strengths)));
+}
+
+function backToJourneyMap() {
+  document.getElementById('journey-region-detail').classList.add('hidden');
+  document.getElementById('journey-map-view').classList.remove('hidden');
+}
+
+async function checkRegionUnlocks(blob) {
+  if (!blob || !currentPlayer) return;
+  const myId   = currentPlayer.id;
+  const alreadyUnlocked = (blob.unlocked_regions?.[myId] || ['paris']).slice();
+  const newRegions = getUnlockableRegions(getMasteredCount(), alreadyUnlocked);
+  if (newRegions.length === 0) return;
+
+  newRegions.forEach(r => alreadyUnlocked.push(r.id));
+  if (!blob.unlocked_regions) {
+    blob.unlocked_regions = { player1: ['paris'], player2: ['paris'] };
+  }
+  blob.unlocked_regions[myId] = alreadyUnlocked;
+  await writeBlob(blob);
+  showToast('🗺️ ' + newRegions[0].name + ' unlocked! Bon voyage!', 3500);
+}
+
+/* ── SVG Avatar Drawing System ────────────────────────────────────────────── */
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
+  return el;
+}
+
+const AVATAR_DEFAULTS = {
+  body: '#1B3A5B', armL: '#1B3A5B', armR: '#1B3A5B',
+  legL: '#254E7A', legR: '#254E7A', shoeL: '#2C1810', shoeR: '#2C1810',
+};
+
+function resetAvatarBody() {
+  document.getElementById('av-body').setAttribute('fill',   AVATAR_DEFAULTS.body);
+  document.getElementById('av-arm-l').setAttribute('fill',  AVATAR_DEFAULTS.armL);
+  document.getElementById('av-arm-r').setAttribute('fill',  AVATAR_DEFAULTS.armR);
+  document.getElementById('av-leg-l').setAttribute('fill',  AVATAR_DEFAULTS.legL);
+  document.getElementById('av-leg-r').setAttribute('fill',  AVATAR_DEFAULTS.legR);
+  document.getElementById('av-shoe-l').setAttribute('fill', AVATAR_DEFAULTS.shoeL);
+  document.getElementById('av-shoe-r').setAttribute('fill', AVATAR_DEFAULTS.shoeR);
+}
+
+const AVATAR_VISUAL = {
+  /* ── HATS ─────────────────────────────────────────────────────────────── */
+  beret(svg, g) {
+    // Navy beret: band at crown, dome offset right for drape effect
+    g.appendChild(svgEl('rect',    { x: 29, y: 2,  width: 42, height: 5, rx: 2.5, fill: '#0F2238' }));
+    g.appendChild(svgEl('ellipse', { cx: 57, cy: -4, rx: 20, ry: 9, fill: '#1B3A5B' }));
+    g.appendChild(svgEl('ellipse', { cx: 62, cy: -6, rx:  7, ry: 4, fill: '#0F2238' }));
+  },
+  beret_red(svg, g) {
+    g.appendChild(svgEl('rect',    { x: 29, y: 2,  width: 42, height: 5, rx: 2.5, fill: '#8B0A1A' }));
+    g.appendChild(svgEl('ellipse', { cx: 57, cy: -4, rx: 20, ry: 9, fill: '#C8102E' }));
+    g.appendChild(svgEl('ellipse', { cx: 62, cy: -6, rx:  7, ry: 4, fill: '#8B0A1A' }));
+  },
+  beret_gold(svg, g) {
+    g.appendChild(svgEl('rect',    { x: 29, y: 2,  width: 42, height: 5, rx: 2.5, fill: '#B8941F' }));
+    g.appendChild(svgEl('ellipse', { cx: 57, cy: -4, rx: 20, ry: 9, fill: '#D4AF37' }));
+    g.appendChild(svgEl('ellipse', { cx: 62, cy: -6, rx:  7, ry: 4, fill: '#B8941F' }));
+  },
+  eiffel_hat(svg, g) {
+    g.appendChild(svgEl('rect', { x: 26, y: 3,  width: 48, height: 5,  rx: 2,   fill: '#111' }));
+    g.appendChild(svgEl('rect', { x: 36, y: -22, width: 28, height: 26, rx: 3,  fill: '#1A1A1A' }));
+    // Eiffel tower silhouette inside hat
+    g.appendChild(svgEl('path', { d: 'M50,-29 L47,-23 L53,-23 Z M46,-23 L43,-17 L57,-17 L54,-23 Z M42,-17 L40,-12 L60,-12 L58,-17 Z', fill: '#D4AF37' }));
+  },
+  streak30(svg, g) {
+    g.appendChild(svgEl('path', { d: 'M29,3 L29,-8 L37,1 L50,-14 L63,1 L71,-8 L71,3 Z', fill: '#D4AF37' }));
+    g.appendChild(svgEl('rect', { x: 29, y: 3, width: 42, height: 7, rx: 2, fill: '#D4AF37' }));
+    g.appendChild(svgEl('circle', { cx: 37, cy:  0,  r: 3,   fill: '#C8102E' }));
+    g.appendChild(svgEl('circle', { cx: 50, cy: -7,  r: 3.5, fill: '#E8C84A' }));
+    g.appendChild(svgEl('circle', { cx: 63, cy:  0,  r: 3,   fill: '#C8102E' }));
+  },
+
+  /* ── TOPS ─────────────────────────────────────────────────────────────── */
+  striped_top(svg, g) {
+    // Breton stripes: set body/arms to white, overlay clipped navy stripes
+    document.getElementById('av-body').setAttribute('fill',  'white');
+    document.getElementById('av-arm-l').setAttribute('fill', 'white');
+    document.getElementById('av-arm-r').setAttribute('fill', 'white');
+    const NAVY = '#1B3A5B';
+    const H = 8;   // stripe height
+
+    // Body stripes clipped to rounded body rect
+    const bodyG = svgEl('g', { 'clip-path': 'url(#body-clip)' });
+    for (let i = 1; i < 9; i += 2) {   // odd rows = navy
+      bodyG.appendChild(svgEl('rect', { x: 0, y: 51 + i * H, width: 100, height: H, fill: NAVY }));
+    }
+    // Left arm stripes
+    const armLG = svgEl('g', { 'clip-path': 'url(#arm-l-clip)' });
+    for (let i = 1; i < 4; i += 2) {
+      armLG.appendChild(svgEl('rect', { x: 0, y: 54 + i * 3, width: 30, height: 3, fill: NAVY }));
+    }
+    // Right arm stripes
+    const armRG = svgEl('g', { 'clip-path': 'url(#arm-r-clip)' });
+    for (let i = 1; i < 4; i += 2) {
+      armRG.appendChild(svgEl('rect', { x: 70, y: 54 + i * 3, width: 30, height: 3, fill: NAVY }));
+    }
+    g.appendChild(bodyG);
+    g.appendChild(armLG);
+    g.appendChild(armRG);
+  },
+  waiter_top(svg, g) {
+    // White apron bib + waist band + bow over navy body
+    g.appendChild(svgEl('rect',    { x: 37, y: 53,  width: 26, height: 32, rx: 4, fill: 'white', opacity: '0.92' }));
+    g.appendChild(svgEl('rect',    { x: 26, y: 83,  width: 48, height: 6,  rx: 3, fill: 'white', opacity: '0.85' }));
+    g.appendChild(svgEl('ellipse', { cx: 45, cy: 89, rx: 5,   ry: 3,  fill: 'white' }));
+    g.appendChild(svgEl('ellipse', { cx: 55, cy: 89, rx: 5,   ry: 3,  fill: 'white' }));
+    g.appendChild(svgEl('circle',  { cx: 50, cy: 89, r: 3,           fill: '#DDD' }));
+  },
+  french_coat(svg, g) {
+    document.getElementById('av-body').setAttribute('fill',  '#C4A05A');
+    document.getElementById('av-arm-l').setAttribute('fill', '#C4A05A');
+    document.getElementById('av-arm-r').setAttribute('fill', '#C4A05A');
+    g.appendChild(svgEl('path', { d: 'M26,52 L38,57 L36,76 L28,68 Z', fill: '#8B6A25', opacity: '0.9' }));
+    g.appendChild(svgEl('path', { d: 'M74,52 L62,57 L64,76 L72,68 Z', fill: '#8B6A25', opacity: '0.9' }));
+    g.appendChild(svgEl('rect', { x: 25, y: 100, width: 50, height: 6, rx: 3, fill: '#5C3D0A' }));
+    g.appendChild(svgEl('rect', { x: 45, y: 101, width: 10, height: 4, rx: 1, fill: '#D4AF37' }));
+  },
+  mime_outfit(svg, g) {
+    document.getElementById('av-body').setAttribute('fill',  'white');
+    document.getElementById('av-arm-l').setAttribute('fill', 'white');
+    document.getElementById('av-arm-r').setAttribute('fill', 'white');
+    const BLACK = '#1A1A1A';
+    const H = 8;
+    const bodyG = svgEl('g', { 'clip-path': 'url(#body-clip)' });
+    for (let i = 1; i < 9; i += 2) {
+      bodyG.appendChild(svgEl('rect', { x: 0, y: 51 + i * H, width: 100, height: H, fill: BLACK }));
+    }
+    const armLG = svgEl('g', { 'clip-path': 'url(#arm-l-clip)' });
+    for (let i = 1; i < 4; i += 2) {
+      armLG.appendChild(svgEl('rect', { x: 0, y: 54 + i * 3, width: 30, height: 3, fill: BLACK }));
+    }
+    const armRG = svgEl('g', { 'clip-path': 'url(#arm-r-clip)' });
+    for (let i = 1; i < 4; i += 2) {
+      armRG.appendChild(svgEl('rect', { x: 70, y: 54 + i * 3, width: 30, height: 3, fill: BLACK }));
+    }
+    [bodyG, armLG, armRG].forEach(el => g.appendChild(el));
+  },
+
+  /* ── ACCESSORIES ──────────────────────────────────────────────────────── */
+  baguette(svg, g) {
+    // Long baguette tucked at right side, tilted 10 degrees outward
+    const grp = svgEl('g', { transform: 'translate(74, 50) rotate(10)' });
+    grp.appendChild(svgEl('rect', { x: 0, y: 0, width: 9, height: 88, rx: 4.5, fill: '#D4A56A' }));
+    [15, 30, 45, 60, 75].forEach(y => {
+      grp.appendChild(svgEl('line', { x1: -1, y1: y, x2: 10, y2: y + 4, stroke: '#A07440', 'stroke-width': '1.5' }));
+    });
+    g.appendChild(grp);
+  },
+  scarf(svg, g) {
+    // Red silk scarf wound at neck with flowing tail
+    g.appendChild(svgEl('rect',   { x: 37, y: 41, width: 26, height: 15, rx: 4, fill: '#C8102E', opacity: '0.93' }));
+    g.appendChild(svgEl('circle', { cx: 50, cy: 51, r: 5, fill: '#A00D25' }));
+    g.appendChild(svgEl('path',   { d: 'M46,54 L41,77 L49,79 L51,57 Z', fill: '#C8102E', opacity: '0.82' }));
+  },
+  croissant_bag(svg, g) {
+    // Small shoulder bag with gold clasp
+    g.appendChild(svgEl('line',    { x1: 67, y1: 58, x2: 74, y2: 97, stroke: '#8B6A25', 'stroke-width': '2.5' }));
+    g.appendChild(svgEl('ellipse', { cx: 77, cy: 102, rx: 11, ry: 9, fill: '#D4A56A' }));
+    g.appendChild(svgEl('rect',    { x: 72, y: 95, width: 9, height: 5, rx: 2, fill: '#D4AF37' }));
+    g.appendChild(svgEl('path',    { d: 'M73,105 Q77,100 81,105 Q79,110 73,105 Z', fill: '#B8873A' }));
+  },
+  champagne(svg, g) {
+    // Champagne flute held in right hand area
+    g.appendChild(svgEl('path',    { d: 'M85,53 L88,68 L94,68 L97,53 Z', fill: 'rgba(180,220,255,0.55)', stroke: 'rgba(200,200,255,0.8)', 'stroke-width': '1' }));
+    g.appendChild(svgEl('line',    { x1: 91, y1: 68, x2: 91, y2: 86, stroke: '#C0C0C0', 'stroke-width': '1.5' }));
+    g.appendChild(svgEl('ellipse', { cx: 91, cy: 86, rx: 6, ry: 2, fill: '#C0C0C0' }));
+    g.appendChild(svgEl('circle',  { cx: 91, cy: 59, r: 1.5, fill: 'white', opacity: '0.7' }));
+    g.appendChild(svgEl('circle',  { cx: 89, cy: 63, r: 1,   fill: 'white', opacity: '0.6' }));
+  },
+  streak7(svg, g) {
+    // Bronze medal on red ribbon at chest
+    g.appendChild(svgEl('rect',   { x: 47, y: 47, width: 6,  height: 13, rx: 1.5, fill: '#C8102E' }));
+    g.appendChild(svgEl('circle', { cx: 50, cy: 65, r: 9, fill: '#D4AF37' }));
+    g.appendChild(svgEl('circle', { cx: 50, cy: 65, r: 6, fill: '#E8C84A' }));
+    const star = svgEl('text', { x: 50, y: 69, 'text-anchor': 'middle', 'font-size': '8', fill: '#8B6914', 'font-family': 'Arial' });
+    star.textContent = '★';
+    g.appendChild(star);
+  },
+
+  /* ── SHOES ─────────────────────────────────────────────────────────────── */
+  espadrilles(svg, g) {
+    // Tan canvas espadrilles with rope-texture stitching lines
+    document.getElementById('av-shoe-l').setAttribute('fill', '#C4A46B');
+    document.getElementById('av-shoe-r').setAttribute('fill', '#C4A46B');
+    g.appendChild(svgEl('line', { x1: 23, y1: 163, x2: 50, y2: 163, stroke: '#8B7355', 'stroke-width': '1.5', opacity: '0.6' }));
+    g.appendChild(svgEl('line', { x1: 51, y1: 163, x2: 78, y2: 163, stroke: '#8B7355', 'stroke-width': '1.5', opacity: '0.6' }));
+    g.appendChild(svgEl('line', { x1: 24, y1: 167, x2: 49, y2: 167, stroke: '#8B7355', 'stroke-width': '1',   opacity: '0.4' }));
+    g.appendChild(svgEl('line', { x1: 52, y1: 167, x2: 77, y2: 167, stroke: '#8B7355', 'stroke-width': '1',   opacity: '0.4' }));
+  },
+};
+
+function applyAvatarItems(equipped) {
+  resetAvatarBody();
+  const g = document.getElementById('av-overlays');
+  while (g.firstChild) g.removeChild(g.firstChild);
+  const svg = document.getElementById('avatar-svg');
+  // Draw bottom → top so hats render last (on top in SVG stack)
+  ['shoes', 'bottom', 'top', 'accessory', 'hat'].forEach(slot => {
+    const id = equipped[slot];
+    if (id && AVATAR_VISUAL[id]) AVATAR_VISUAL[id](svg, g);
+  });
+}
+
 /* ── Avatar Screen ────────────────────────────────────────────────────────── */
 async function renderAvatar() {
   if (!currentPlayer) return;
@@ -445,17 +765,7 @@ async function renderAvatar() {
 
   document.getElementById('avatar-points').textContent = totalPts.toLocaleString();
 
-  // Update visual doll layers (textContent only — no innerHTML)
-  const SLOTS = ['hat', 'top', 'bottom', 'shoes', 'accessory'];
-  SLOTS.forEach(slot => {
-    const el = document.getElementById('layer-' + slot);
-    if (!el) return;
-    const equippedId = equipped[slot];
-    const item = equippedId ? getItemById(equippedId) : null;
-    el.textContent = item ? item.emoji : '';
-    // Shoes: show two shoes side by side
-    if (slot === 'shoes' && item) el.textContent = item.emoji + item.emoji;
-  });
+  applyAvatarItems(equipped);
 
   // Render wardrobe grid
   const grid = document.getElementById('items-grid');
