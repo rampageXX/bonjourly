@@ -34,14 +34,6 @@
         >
       </div>
 
-      <div class="form-group">
-        <label class="form-label">You are…</label>
-        <div class="player-toggle">
-          <button class="toggle-btn" data-player="player1" onclick="selectPlayer(this)">Player 1</button>
-          <button class="toggle-btn" data-player="player2" onclick="selectPlayer(this)">Player 2</button>
-        </div>
-      </div>
-
       <button class="btn btn-primary btn-full btn-lg" onclick="handleStart()">
         Commencer →
       </button>
@@ -66,17 +58,7 @@
         <div class="duel-date" id="home-date">—</div>
         <h2 class="duel-title serif">Today's Duel</h2>
 
-        <div class="duel-vs">
-          <div class="duel-player">
-            <div class="duel-player-name" id="home-p1-name">Player 1</div>
-            <div class="duel-player-score" id="home-p1-score">—</div>
-          </div>
-          <div class="duel-sep">vs</div>
-          <div class="duel-player">
-            <div class="duel-player-name" id="home-p2-name">Player 2</div>
-            <div class="duel-player-score" id="home-p2-score">—</div>
-          </div>
-        </div>
+        <div id="home-leaderboard" class="home-leaderboard"></div>
 
         <button class="btn btn-gold btn-full btn-lg" id="play-btn" onclick="startDuel()">
           ⚔️ Play Today's Duel
@@ -87,11 +69,16 @@
         </div>
       </div>
 
-      <!-- Streak row -->
+      <!-- Streak + points row -->
       <div class="streak-row">
         <span class="streak-flame">🔥</span>
         <span class="streak-text">Current streak:</span>
         <span class="streak-count" id="home-streak-display">0 days</span>
+      </div>
+      <div class="points-summary-row hidden" id="home-points-row">
+        <span>⭐ <strong id="home-points-alltime">0</strong> all-time</span>
+        <span class="points-sep">·</span>
+        <span><strong id="home-points-week">0</strong> this week</span>
       </div>
 
       <!-- Weekly summary -->
@@ -172,7 +159,8 @@
         <div id="result-unlock-name" style="font-size:0.88rem; font-weight:600; color:var(--navy);"></div>
       </div>
 
-      <button class="btn btn-secondary btn-full" onclick="showScreen('home-screen')">
+      <button class="btn btn-secondary btn-full"
+              onclick="navTo('home-screen', document.querySelector('.nav-btn[data-screen=home-screen]'))">
         Back to Home
       </button>
     </div>
@@ -281,63 +269,46 @@
     </div>
 
     <div class="screen-content">
-      <div class="stats-tabs">
-        <button class="stats-tab active" onclick="switchStatTab('weekly', this)">Weekly</button>
-        <button class="stats-tab" onclick="switchStatTab('alltime', this)">All-time</button>
-      </div>
 
-      <div id="stats-weekly">
-        <div class="stat-block">
-          <span class="stat-icon">🏆</span>
-          <div>
-            <div class="stat-label">Days won this week</div>
-            <div class="stat-value serif" id="stats-days-won">—</div>
-          </div>
+      <!-- Points summary: both numbers side-by-side -->
+      <div class="stats-points-card">
+        <div class="stat-pair">
+          <div class="stat-pair-value serif" id="stats-total-pts">—</div>
+          <div class="stat-pair-label">All-time pts</div>
         </div>
-        <div class="stat-block">
-          <span class="stat-icon">⭐</span>
-          <div>
-            <div class="stat-label">Weekly points</div>
-            <div class="stat-value serif" id="stats-weekly-pts">—</div>
-          </div>
-        </div>
-        <div class="stat-block">
-          <span class="stat-icon">🔥</span>
-          <div>
-            <div class="stat-label">Current streak</div>
-            <div class="stat-value serif" id="stats-streak">—</div>
-          </div>
+        <div class="stat-pair-sep"></div>
+        <div class="stat-pair">
+          <div class="stat-pair-value serif" id="stats-weekly-pts">—</div>
+          <div class="stat-pair-label">This week <span class="rolling-label">rolling 7d</span></div>
         </div>
       </div>
 
-      <div id="stats-alltime" class="hidden">
-        <div class="stat-block">
-          <span class="stat-icon">📅</span>
-          <div>
-            <div class="stat-label">Total days played</div>
-            <div class="stat-value serif" id="stats-total-days">—</div>
-          </div>
+      <div class="stat-block">
+        <span class="stat-icon">🔥</span>
+        <div>
+          <div class="stat-label">Current streak</div>
+          <div class="stat-value serif" id="stats-streak">—</div>
         </div>
-        <div class="stat-block">
-          <span class="stat-icon">💎</span>
-          <div>
-            <div class="stat-label">All-time points</div>
-            <div class="stat-value serif" id="stats-total-pts">—</div>
-          </div>
+      </div>
+      <div class="stat-block">
+        <span class="stat-icon">⭐</span>
+        <div>
+          <div class="stat-label">Longest streak</div>
+          <div class="stat-value serif" id="stats-longest-streak">—</div>
         </div>
-        <div class="stat-block">
-          <span class="stat-icon">🔥</span>
-          <div>
-            <div class="stat-label">Longest streak</div>
-            <div class="stat-value serif" id="stats-longest-streak">—</div>
-          </div>
+      </div>
+      <div class="stat-block">
+        <span class="stat-icon">📅</span>
+        <div>
+          <div class="stat-label">Total days played</div>
+          <div class="stat-value serif" id="stats-total-days">—</div>
         </div>
-        <div class="stat-block">
-          <span class="stat-icon">⚔️</span>
-          <div>
-            <div class="stat-label">Head-to-head record</div>
-            <div class="stat-value serif" id="stats-h2h">—</div>
-          </div>
+      </div>
+      <div class="stat-block">
+        <span class="stat-icon">🏆</span>
+        <div>
+          <div class="stat-label">Days won (all-time)</div>
+          <div class="stat-value serif" id="stats-days-won">—</div>
         </div>
       </div>
 

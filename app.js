@@ -1,13 +1,22 @@
 /* ── State ────────────────────────────────────────────────────────────────── */
 let currentScreen = null;
-let selectedPlayerSlot = null;
-let currentPlayer = null;   // { id: 'player1'|'player2', name: string }
+let currentPlayer = null;   // { id: string (normalized name), name: string (display) }
 
 /* ── Boot ─────────────────────────────────────────────────────────────────── */
 document.addEventListener('DOMContentLoaded', () => {
   resetMonthlyFreeze();
   applyDailyDecay();
-  const saved = getLocal('player');
+  let saved = getLocal('player');
+  // Migrate v1 slot-based id (player1/player2) to normalized name id
+  if (saved && (saved.id === 'player1' || saved.id === 'player2')) {
+    const newId = normalizeName(saved.name || '');
+    if (newId) {
+      saved = { id: newId, name: saved.name };
+      setLocal('player', saved);
+    } else {
+      saved = null;
+    }
+  }
   if (saved) {
     currentPlayer = saved;
     enterApp();
@@ -61,12 +70,6 @@ function escapeHtml(str) {
 }
 
 /* ── Start / Onboarding ───────────────────────────────────────────────────── */
-function selectPlayer(btn) {
-  document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('selected'));
-  btn.classList.add('selected');
-  selectedPlayerSlot = btn.dataset.player;
-}
-
 function handleStart() {
   const nameInput = document.getElementById('name-input');
   const name = nameInput.value.trim();
@@ -76,11 +79,8 @@ function handleStart() {
     setTimeout(() => nameInput.classList.remove('animate-shake'), 500);
     return;
   }
-  if (!selectedPlayerSlot) {
-    showToast('Choose Player 1 or Player 2');
-    return;
-  }
-  currentPlayer = { id: selectedPlayerSlot, name };
+  const id = normalizeName(name);
+  currentPlayer = { id, name };
   setLocal('player', currentPlayer);
   enterApp();
 }
@@ -97,7 +97,6 @@ function enterApp() {
 async function renderHome() {
   if (!currentPlayer) return;
   const { id, name } = currentPlayer;
-  const opId = id === 'player1' ? 'player2' : 'player1';
 
   document.getElementById('home-player-name').textContent = name;
   document.getElementById('home-date').textContent = formatDateDisplay(getTodayString());
@@ -112,35 +111,96 @@ async function renderHome() {
     badge.classList.add('hidden');
   }
 
-  // Fetch shared data for opponent name and scores
   const blob = await getSharedData();
   const today = getTodayString();
-  const opName = blob?.players?.[opId]?.name || (opId === 'player1' ? 'Player 1' : 'Player 2');
-  const opResult = blob?.daily_results?.[today]?.[opId];
 
-  document.getElementById('home-p1-name').textContent = id === 'player1' ? name : opName;
-  document.getElementById('home-p2-name').textContent = id === 'player2' ? name : opName;
+  // Mirror remote daily result to localStorage if another device already played today
+  if (blob?.daily_results?.[today]?.[id] && !getLocal('result_' + today)) {
+    const r = blob.daily_results[today][id];
+    setLocal('result_' + today, { score: r.score, correct: r.correct, played_at: r.played_at });
+  }
 
-  const today2 = today;
-  const todayResult = getLocal('result_' + today2);
-  const playBtn = document.getElementById('play-btn');
+  const todayResult = getLocal('result_' + today);
+  const playBtn    = document.getElementById('play-btn');
   const alreadyMsg = document.getElementById('already-played-msg');
 
   if (todayResult) {
     playBtn.classList.add('hidden');
     alreadyMsg.classList.remove('hidden');
-    const myScoreEl = document.getElementById(id === 'player1' ? 'home-p1-score' : 'home-p2-score');
-    const opScoreEl = document.getElementById(id === 'player1' ? 'home-p2-score' : 'home-p1-score');
-    myScoreEl.textContent = todayResult.score.toLocaleString();
-    opScoreEl.textContent = opResult ? opResult.score.toLocaleString() : '—';
   } else {
     playBtn.classList.remove('hidden');
     alreadyMsg.classList.add('hidden');
-    document.getElementById('home-p1-score').textContent = '—';
-    document.getElementById('home-p2-score').textContent = '—';
   }
 
+  // Points summary row
+  if (blob) {
+    const myData   = blob.players[id] || {};
+    const totalPts = myData.total_points || 0;
+    const weekPts  = getWeekPoints(blob, id);
+    document.getElementById('home-points-alltime').textContent = totalPts.toLocaleString();
+    document.getElementById('home-points-week').textContent    = weekPts.toLocaleString();
+    document.getElementById('home-points-row').classList.remove('hidden');
+  }
+
+  renderLeaderboard(blob, today, id);
   renderWeekGrid(blob);
+}
+
+function renderLeaderboard(blob, today, myId) {
+  const container = document.getElementById('home-leaderboard');
+  if (!container) return;
+  clearEl(container);
+
+  if (!blob) {
+    const msg = document.createElement('p');
+    msg.style.cssText = 'text-align:center; color:var(--text-light); font-size:0.85rem; padding:12px 0;';
+    msg.textContent = 'Offline — scores unavailable';
+    container.appendChild(msg);
+    return;
+  }
+
+  // Only show players who have played at least once, plus always show the current user
+  const hasPlayedEver = (pid) =>
+    (blob.players[pid]?.total_points || 0) > 0 ||
+    Object.values(blob.daily_results || {}).some(day => day?.[pid]);
+
+  const players = Object.entries(blob.players)
+    .filter(([pid]) => pid === myId || hasPlayedEver(pid))
+    .map(([pid, pdata]) => {
+      const r = blob.daily_results?.[today]?.[pid];
+      return { id: pid, displayName: pdata.displayName || pid, score: r ? r.score : null };
+    });
+
+  // Played rows sorted by score desc; unplayed rows alphabetically after
+  players.sort((a, b) => {
+    if (a.score !== null && b.score !== null) return b.score - a.score;
+    if (a.score !== null) return -1;
+    if (b.score !== null) return 1;
+    return (a.displayName || '').localeCompare(b.displayName || '');
+  });
+
+  const rankEmojis = ['🥇', '🥈', '🥉'];
+  players.forEach((p, i) => {
+    const row = document.createElement('div');
+    row.className = 'leaderboard-row' + (p.id === myId ? ' is-me' : '');
+
+    const rankEl = document.createElement('span');
+    rankEl.className = 'leaderboard-rank';
+    rankEl.textContent = p.score !== null ? (rankEmojis[i] || (i + 1) + '.') : '';
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'leaderboard-name';
+    nameEl.textContent = p.displayName;
+
+    const scoreEl = document.createElement('span');
+    scoreEl.className = 'leaderboard-score';
+    scoreEl.textContent = p.score !== null ? p.score.toLocaleString() + ' pts' : 'Not played yet';
+
+    row.appendChild(rankEl);
+    row.appendChild(nameEl);
+    row.appendChild(scoreEl);
+    container.appendChild(row);
+  });
 }
 
 function renderWeekGrid(blob) {
@@ -149,18 +209,24 @@ function renderWeekGrid(blob) {
   const now = new Date();
   const dayOfWeek = (now.getDay() + 6) % 7; // 0 = Monday
   const myId = currentPlayer?.id;
-  const opId = myId === 'player1' ? 'player2' : 'player1';
 
-  grid.innerHTML = '';
+  clearEl(grid);
   DAY_LABELS.forEach((label, i) => {
     const diff = i - dayOfWeek;
     const d = new Date(now);
     d.setDate(d.getDate() + diff);
-    const dateStr = toDateString(d);
+    const dateStr  = toDateString(d);
     const myResult = getLocal('result_' + dateStr);
-    const opResult = blob?.daily_results?.[dateStr]?.[opId];
     const isToday  = i === dayOfWeek;
     const isFuture = diff > 0;
+
+    // Won the day if I outscored every other player who also played
+    let won = false;
+    if (myResult && blob) {
+      const others = Object.entries(blob.daily_results?.[dateStr] || {})
+        .filter(([pid, r]) => pid !== myId && r);
+      won = others.length > 0 && others.every(([, r]) => myResult.score > r.score);
+    }
 
     const cell = document.createElement('div');
     cell.className = 'week-day';
@@ -173,13 +239,9 @@ function renderWeekGrid(blob) {
     dot.className = 'week-day-dot';
     if (isFuture) {
       dot.classList.add('pending');
-    } else if (myResult && opResult) {
-      const won = myResult.score > opResult.score;
-      const tied = myResult.score === opResult.score;
-      dot.classList.add(won ? 'win' : tied ? 'tie' : 'loss');
-      dot.textContent = won ? '🏆' : tied ? '=' : '✗';
     } else if (myResult) {
-      dot.classList.add('win'); dot.textContent = '✓';
+      dot.classList.add('win');
+      dot.textContent = won ? '🏆' : '✓';
     }
     if (isToday) dot.classList.add('today');
 
@@ -187,6 +249,19 @@ function renderWeekGrid(blob) {
     cell.appendChild(dot);
     grid.appendChild(cell);
   });
+}
+
+function getWeekPoints(blob, myId) {
+  if (!blob) return 0;
+  const now = new Date();
+  let pts = 0;
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const r = blob.daily_results?.[toDateString(d)]?.[myId];
+    if (r) pts += r.score;
+  }
+  return pts;
 }
 
 /* ── Words Screen ─────────────────────────────────────────────────────────── */
@@ -358,9 +433,6 @@ function startDuel() {
 async function showResult(result) {
   const today = getTodayString();
   const myId  = currentPlayer.id;
-  setLocal('result_' + today, {
-    score: result.score, correct: result.correct, played_at: new Date().toISOString()
-  });
 
   document.getElementById('result-score').textContent = result.score.toLocaleString();
   document.getElementById('result-correct').textContent = result.correct + ' / ' + result.total + ' correct';
@@ -375,19 +447,36 @@ async function showResult(result) {
   showScreen('result-screen');
   setActiveNav(null);
 
-  // Sync to JSONBin
-  const opId = myId === 'player1' ? 'player2' : 'player1';
-  const synced = await syncDuelResult(myId, result);
+  // Sync to JSONBin (server-authoritative: deduplicates cross-device replays)
+  const syncRes = await syncDuelResult(myId, result);
 
-  // Check opponent result
-  const blob = synced ? await getSharedData() : null;
-  const opResult = blob?.daily_results?.[today]?.[opId];
-  const opName   = blob?.players?.[opId]?.name || (opId === 'player1' ? 'Player 1' : 'Player 2');
+  if (syncRes.alreadyPlayed) {
+    const r = syncRes.existing;
+    setLocal('result_' + today, { score: r.score, correct: r.correct, played_at: r.played_at });
+    showToast('Already counted from another device — your earlier score stands.', 4000);
+  } else {
+    setLocal('result_' + today, {
+      score: result.score, correct: result.correct, played_at: new Date().toISOString(),
+    });
+  }
 
-  document.getElementById('result-opponent-name').textContent = opName;
+  const blob = syncRes.ok ? await getSharedData() : null;
 
-  if (opResult) {
-    showOpponentResult(result.score, opResult.score, opName);
+  // Find best-scoring other player today for the opponent slot
+  if (blob) {
+    const dayData  = blob.daily_results?.[today] || {};
+    const bestOp   = Object.entries(dayData)
+      .filter(([pid, r]) => pid !== myId && r)
+      .sort((a, b) => (b[1]?.score || 0) - (a[1]?.score || 0))[0];
+    const opId     = bestOp?.[0] || null;
+    const opResult = bestOp?.[1] || null;
+    const opName   = opId ? (blob.players?.[opId]?.displayName || opId) : '—';
+
+    document.getElementById('result-opponent-name').textContent = opName;
+    if (opResult) {
+      const myDisplayScore = syncRes.alreadyPlayed ? syncRes.existing.score : result.score;
+      showOpponentResult(myDisplayScore, opResult.score, opName);
+    }
   }
 
   // Check avatar item unlocks
@@ -438,6 +527,7 @@ async function renderJourney() {
   if (!currentPlayer) return;
   const myId = currentPlayer.id;
   const blob = await getSharedData();
+  if (blob) await checkRegionUnlocks(blob);
   const unlockedIds = blob?.unlocked_regions?.[myId] || ['paris'];
   const mastered    = getMasteredCount();
 
@@ -452,7 +542,7 @@ async function renderJourney() {
   while (pinsG.firstChild) pinsG.removeChild(pinsG.firstChild);
 
   REGIONS.forEach(r => {
-    const isUnlocked = unlockedIds.includes(r.id);
+    const isUnlocked = unlockedIds.includes(r.id) || mastered >= r.masteryReq;
 
     // Outer glow ring for unlocked pins
     if (isUnlocked) {
@@ -482,7 +572,7 @@ async function renderJourney() {
   clearEl(list);
 
   REGIONS.forEach(r => {
-    const isUnlocked = unlockedIds.includes(r.id);
+    const isUnlocked = unlockedIds.includes(r.id) || mastered >= r.masteryReq;
 
     const card = document.createElement('div');
     card.className = 'region-card' + (isUnlocked ? '' : ' locked');
@@ -551,15 +641,14 @@ function backToJourneyMap() {
 
 async function checkRegionUnlocks(blob) {
   if (!blob || !currentPlayer) return;
-  const myId   = currentPlayer.id;
-  const alreadyUnlocked = (blob.unlocked_regions?.[myId] || ['paris']).slice();
+  const myId = currentPlayer.id;
+  blob.unlocked_regions = blob.unlocked_regions || {};
+  if (!blob.unlocked_regions[myId]) blob.unlocked_regions[myId] = ['paris'];
+  const alreadyUnlocked = blob.unlocked_regions[myId].slice();
   const newRegions = getUnlockableRegions(getMasteredCount(), alreadyUnlocked);
   if (newRegions.length === 0) return;
 
   newRegions.forEach(r => alreadyUnlocked.push(r.id));
-  if (!blob.unlocked_regions) {
-    blob.unlocked_regions = { player1: ['paris'], player2: ['paris'] };
-  }
   blob.unlocked_regions[myId] = alreadyUnlocked;
   await writeBlob(blob);
   showToast('🗺️ ' + newRegions[0].name + ' unlocked! Bon voyage!', 3500);
@@ -863,66 +952,41 @@ async function equipItem(item, currentEquipped, blob, myId) {
 
 /* ── Stats Screen ─────────────────────────────────────────────────────────── */
 async function renderStats() {
-  const streak = getLocal('streak') || { current: 0, longest: 0 };
-  document.getElementById('stats-streak').textContent = streak.current + ' days';
-  document.getElementById('stats-longest-streak').textContent = streak.longest + ' days';
+  const streak = getLocal('streak') || {};
+  document.getElementById('stats-streak').textContent = (streak.current || 0) + ' days';
+  document.getElementById('stats-longest-streak').textContent = (streak.longest || 0) + ' days';
 
-  const blob = await getSharedData();
-  const myId = currentPlayer?.id;
-  const opId = myId === 'player1' ? 'player2' : 'player1';
+  const blob  = await getSharedData();
+  const myId  = currentPlayer?.id;
 
   if (blob) {
-    const myData = blob.players[myId] || {};
-    document.getElementById('stats-total-pts').textContent = (myData.total_points || 0).toLocaleString();
+    const myData   = blob.players[myId] || {};
+    const totalPts = myData.total_points || 0;
+    const weekPts  = getWeekPoints(blob, myId);
 
-    // Weekly stats: last 7 days
-    const now = new Date();
-    let weekWins = 0, weekPts = 0, totalDays = 0, myWins = 0, opWins = 0, ties = 0;
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const ds = toDateString(d);
-      const myR = blob.daily_results?.[ds]?.[myId];
-      const opR = blob.daily_results?.[ds]?.[opId];
-      if (myR) {
-        weekPts += myR.score;
-        totalDays++;
-        if (opR) {
-          if (myR.score > opR.score) { weekWins++; myWins++; }
-          else if (opR.score > myR.score) opWins++;
-          else ties++;
-        }
-      }
-    }
-
-    // All-time H2H
-    Object.values(blob.daily_results || {}).forEach(day => {
-      const myR = day[myId], opR = day[opId];
-      if (myR && opR) {
-        if (myR.score > opR.score) myWins++;
-        else if (opR.score > myR.score) opWins++;
-        else ties++;
-      }
-    });
-
-    document.getElementById('stats-days-won').textContent = weekWins + ' / 7';
+    document.getElementById('stats-total-pts').textContent  = totalPts.toLocaleString();
     document.getElementById('stats-weekly-pts').textContent = weekPts.toLocaleString();
+
+    // Total days played (any day I have a result)
+    const totalDays = Object.values(blob.daily_results || {})
+      .filter(day => day[myId]).length;
     document.getElementById('stats-total-days').textContent = totalDays;
-    document.getElementById('stats-h2h').textContent = myWins + ' W – ' + opWins + ' L – ' + ties + ' T';
+
+    // All-time days won: days where I was top scorer among 2+ players
+    let daysWon = 0;
+    Object.values(blob.daily_results || {}).forEach(dayData => {
+      const myR = dayData[myId];
+      if (!myR) return;
+      const others = Object.entries(dayData).filter(([pid, r]) => pid !== myId && r);
+      if (others.length === 0) return;
+      if (others.every(([, r]) => myR.score >= r.score)) daysWon++;
+    });
+    document.getElementById('stats-days-won').textContent = daysWon;
   } else {
-    ['stats-days-won','stats-weekly-pts','stats-total-days','stats-total-pts','stats-h2h']
+    ['stats-days-won', 'stats-weekly-pts', 'stats-total-days', 'stats-total-pts',
+     'stats-streak', 'stats-longest-streak']
       .forEach(id => { document.getElementById(id).textContent = 'Offline'; });
   }
-
-}
-
-function switchStatTab(tab, btn) {
-  ['weekly', 'alltime'].forEach(t => {
-    document.getElementById('stats-' + t).classList.add('hidden');
-  });
-  document.getElementById('stats-' + tab).classList.remove('hidden');
-  document.querySelectorAll('.stats-tab').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
 }
 
 function renderWordCollection() {

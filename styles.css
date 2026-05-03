@@ -411,6 +411,102 @@ body {
   color: var(--burgundy);
 }
 
+/* ─── Home Leaderboard ───────────────────────────────────────────────────── */
+.home-leaderboard {
+  margin-bottom: 20px;
+}
+
+.leaderboard-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 4px;
+  border-bottom: 1px solid var(--cream-dark);
+  font-size: 0.92rem;
+}
+
+.leaderboard-row:last-child { border-bottom: none; }
+
+.leaderboard-row.is-me {
+  background: var(--cream-dark);
+  border-radius: var(--radius-sm);
+  padding: 10px 8px;
+  font-weight: 600;
+}
+
+.leaderboard-rank { font-size: 1.1rem; width: 28px; flex-shrink: 0; text-align: center; }
+
+.leaderboard-name { flex: 1; color: var(--navy); font-weight: 500; }
+
+.leaderboard-row.is-me .leaderboard-name { color: var(--navy); font-weight: 700; }
+
+.leaderboard-score { font-family: 'Playfair Display', Georgia, serif; color: var(--navy); font-weight: 700; }
+
+/* ─── Points Summary Row ─────────────────────────────────────────────────── */
+.points-summary-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 0.82rem;
+  color: var(--text-mid);
+  margin-bottom: 16px;
+}
+
+.points-summary-row strong { color: var(--navy); font-weight: 700; }
+.points-summary-row .points-sep { color: var(--text-light); }
+
+/* ─── Stats Points Card ──────────────────────────────────────────────────── */
+.stats-points-card {
+  background: var(--navy);
+  border-radius: var(--radius);
+  padding: 20px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  margin-bottom: 20px;
+}
+
+.stat-pair {
+  flex: 1;
+  text-align: center;
+}
+
+.stat-pair-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--gold);
+}
+
+.stat-pair-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: rgba(255,255,255,0.65);
+  margin-top: 4px;
+}
+
+.rolling-label {
+  display: inline-block;
+  background: rgba(255,255,255,0.12);
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 0.6rem;
+  letter-spacing: 0.06em;
+  vertical-align: middle;
+  margin-left: 3px;
+}
+
+.stat-pair-sep {
+  width: 1px;
+  height: 48px;
+  background: rgba(255,255,255,0.2);
+  margin: 0 20px;
+  flex-shrink: 0;
+}
+
 /* ─── Summary Card ───────────────────────────────────────────────────────── */
 .summary-card {
   background: white;
