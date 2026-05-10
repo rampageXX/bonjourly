@@ -81,6 +81,21 @@
         <span><strong id="home-points-week">0</strong> this week</span>
       </div>
 
+      <!-- Lessons card -->
+      <div class="lessons-home-card" id="home-lessons-card" onclick="navTo('lessons-screen', null)">
+        <div class="lessons-home-card-inner">
+          <div class="lessons-home-icon">📚</div>
+          <div class="lessons-home-text">
+            <div class="lessons-home-title" id="home-lessons-title">Your Lessons</div>
+            <div class="lessons-home-sub" id="home-lessons-sub">Start your learning journey</div>
+          </div>
+          <div class="lessons-home-arrow">›</div>
+        </div>
+        <div class="lessons-home-bar-wrap hidden" id="home-lessons-bar-wrap">
+          <div class="lessons-home-bar" id="home-lessons-bar" style="width:0%"></div>
+        </div>
+      </div>
+
       <!-- Weekly summary -->
       <div class="summary-card">
         <div class="summary-title">This week</div>
@@ -88,6 +103,36 @@
           <!-- Populated by JS -->
         </div>
       </div>
+    </div>
+  </section>
+
+  <!-- ── Lessons Screen ─────────────────────────────────────────────────── -->
+  <section id="lessons-screen" class="screen hidden">
+    <div class="screen-header">
+      <div class="screen-header-inner">
+        <div>
+          <div class="header-title serif">Mes Leçons</div>
+          <div class="header-subtitle">Your learning journey</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-content">
+      <div id="lessons-list">
+        <!-- Populated by renderLessons() -->
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Lesson Detail Screen ───────────────────────────────────────────── -->
+  <section id="lesson-detail-screen" class="screen hidden">
+    <div class="screen-header">
+      <div class="screen-header-inner">
+        <button class="back-btn-header" onclick="navTo('lessons-screen', null)">&#8592; Lessons</button>
+        <div id="lesson-detail-header-title" class="header-title serif" style="font-size:1rem;"></div>
+      </div>
+    </div>
+    <div class="screen-content" id="lesson-detail-content">
+      <!-- Populated by renderLessonDetail() -->
     </div>
   </section>
 
@@ -397,9 +442,31 @@
   <script src="lib/audio.js"></script>
   <script src="data/vocab.js"></script>
   <script src="data/regions.js"></script>
+  <script src="data/lessons/_registry.js"></script>
+  <script src="data/lessons/lesson01.js"></script>
+  <script src="data/lessons/lesson02.js"></script>
+  <script src="data/lessons/lesson03.js"></script>
+  <script src="data/lessons/lesson04.js"></script>
+  <script src="data/lessons/lesson05.js"></script>
+  <script src="data/lessons/lesson06.js"></script>
+  <script src="data/lessons/lesson07.js"></script>
+  <script src="data/lessons/lesson08.js"></script>
+  <script src="data/lessons/lesson09.js"></script>
+  <script src="data/lessons/lesson10.js"></script>
+  <script src="data/lessons/lesson11.js"></script>
+  <script src="data/lessons/lesson12.js"></script>
+  <script src="data/lessons/lesson13.js"></script>
+  <script src="data/lessons/lesson14.js"></script>
+  <script src="data/lessons/lesson15.js"></script>
+  <script src="data/lessons/lesson16.js"></script>
+  <script src="data/lessons/lesson17.js"></script>
+  <script src="data/lessons/lesson18.js"></script>
+  <script src="data/lessons/lesson19.js"></script>
+  <script src="lib/lessonProgress.js"></script>
   <script src="games/matchPairs.js"></script>
   <script src="games/listenAndPick.js"></script>
   <script src="games/typeTranslation.js"></script>
+  <script src="games/grammarDrill.js"></script>
   <script src="lib/scoring.js"></script>
   <script src="lib/dailySelection.js"></script>
   <script src="games/dailyDuel.js"></script>

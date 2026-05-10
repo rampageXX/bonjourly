@@ -1,72 +1,79 @@
 /*
  * Daily Duel orchestrator
- * Runs 10 questions across 3 game types and calls back with final result.
+ * Runs 10 questions across 3 game types (+ optional grammar drills) and calls back with final result.
  *
  * runDailyDuel(words, onDuelComplete)
- *   words           — 10 vocab objects from pickTodaysWords()
+ *   words           — 10 vocab objects from pickTodaysWords / pickTodaysLessonWords
  *   onDuelComplete  — called with { score, correct, total, perQuestion }
  */
 
 function runDailyDuel(words, onDuelComplete) {
-  const TOTAL = 10;
-  let questionIdx  = 0;
-  let totalScore   = 0;
-  let totalCorrect = 0;
-  let sessionStreak = 0;
-  const perQuestion = [];
+  var TOTAL = 10;
+  var questionIdx   = 0;
+  var totalScore    = 0;
+  var totalCorrect  = 0;
+  var sessionStreak = 0;
+  var perQuestion   = [];
 
-  // Distribute words across game types: 4 matchPairs (1 round = 4 words), 3 listenAndPick, 3 typeTranslation
-  // matchPairs takes 4 words at once (1 question slot), so we treat it as Q1.
-  const SCHEDULE = buildSchedule(words);
+  var SCHEDULE = buildSchedule(words);
 
   updateProgress();
   runNext();
 
   function runNext() {
     if (questionIdx >= SCHEDULE.length) {
-      onDuelComplete({ score: totalScore, correct: totalCorrect, total: TOTAL, perQuestion });
+      onDuelComplete({ score: totalScore, correct: totalCorrect, total: TOTAL, perQuestion: perQuestion });
       return;
     }
-    const q = SCHEDULE[questionIdx];
+    var q = SCHEDULE[questionIdx];
     renderGameType(q.type);
 
     if (q.type === 'matchPairs') {
-      initMatchPairs(q.words, result => {
-        const sc = calculateScore({ correct: true, timeMs: result.timeMs, sessionStreak });
+      initMatchPairs(q.words, function(result) {
+        var sc = calculateScore({ correct: true, timeMs: result.timeMs, sessionStreak: sessionStreak });
         sessionStreak++;
         totalScore   += sc.total;
         totalCorrect += 4;
         perQuestion.push({ type: 'matchPairs', correct: true, score: sc.total });
         advance(4);
       });
+
     } else if (q.type === 'listenAndPick') {
-      initListenAndPick(q.word, VOCABULARY, result => {
+      var vocabPool = typeof getAllVocab === 'function' ? getAllVocab() : VOCABULARY;
+      initListenAndPick(q.word, vocabPool, function(result) {
         handleSingleResult(result, q.type);
       });
+
+    } else if (q.type === 'grammarDrill') {
+      initGrammarDrill(q.item, function(result) {
+        recordGrammarAttempt(q.item.id, result.correct);
+        handleSingleResult(result, q.type);
+      });
+
     } else {
-      initTypeTranslation(q.word, result => {
+      initTypeTranslation(q.word, function(result) {
         handleSingleResult(result, q.type);
       });
     }
   }
 
   function handleSingleResult(result, type) {
-    const sc = calculateScore({ correct: result.correct, timeMs: result.timeMs, sessionStreak });
+    var sc = calculateScore({ correct: result.correct, timeMs: result.timeMs, sessionStreak: sessionStreak });
     if (result.correct) sessionStreak++; else sessionStreak = 0;
     totalScore   += sc.total;
     totalCorrect += result.correct ? 1 : 0;
-    perQuestion.push({ type, correct: result.correct, score: sc.total });
+    perQuestion.push({ type: type, correct: result.correct, score: sc.total });
     advance(1);
   }
 
   function advance(count) {
     questionIdx++;
-    // Update word strengths after each answer
-    const q = SCHEDULE[questionIdx - 1];
+    var q = SCHEDULE[questionIdx - 1];
     if (q.type === 'matchPairs') {
-      q.words.forEach(w => updateStrength(w.id, true));
-    } else {
-      const lastQ = perQuestion[perQuestion.length - 1];
+      q.words.forEach(function(w) { updateStrength(w.id, true); });
+    } else if (q.type !== 'grammarDrill') {
+      // Grammar attempts are recorded inside runNext callback; vocab strength updated here
+      var lastQ = perQuestion[perQuestion.length - 1];
       updateStrength(q.word.id, lastQ.correct);
     }
     updateProgress();
@@ -75,23 +82,27 @@ function runDailyDuel(words, onDuelComplete) {
   }
 
   function updateProgress() {
-    const answered = perQuestion.reduce((s, q) => s + (q.type === 'matchPairs' ? 4 : 1), 0);
-    const pct = (answered / TOTAL) * 100;
-    const fill = document.getElementById('game-progress-fill');
-    const label = document.getElementById('game-progress-label');
+    var answered = perQuestion.reduce(function(s, q) { return s + (q.type === 'matchPairs' ? 4 : 1); }, 0);
+    var pct  = (answered / TOTAL) * 100;
+    var fill  = document.getElementById('game-progress-fill');
+    var label = document.getElementById('game-progress-label');
     if (fill)  fill.style.width = pct + '%';
     if (label) label.textContent = answered + ' / ' + TOTAL;
   }
 
   function updateScoreLive() {
-    const el = document.getElementById('game-score-live');
+    var el = document.getElementById('game-score-live');
     if (el) el.textContent = totalScore.toLocaleString() + ' pts';
   }
 
   function renderGameType(type) {
-    const labels = { matchPairs: '🃏 Match Pairs', listenAndPick: '🔊 Listen & Pick', typeTranslation: '✍️ Type It' };
-    const el = document.getElementById('game-progress-label');
-    // Brief flash of game type name
+    var labels = {
+      matchPairs:      '🃏 Match Pairs',
+      listenAndPick:   '🔊 Listen & Pick',
+      typeTranslation: '✍️ Type It',
+      grammarDrill:    '📝 Grammar'
+    };
+    var el = document.getElementById('game-progress-label');
     if (el) {
       el.textContent = labels[type] || '';
       setTimeout(updateProgress, 800);
@@ -100,15 +111,22 @@ function runDailyDuel(words, onDuelComplete) {
 }
 
 /*
- * Distribute 10 words into schedule:
- * 1 × matchPairs (4 words) + 3 × listenAndPick + 3 × typeTranslation = 10 questions
- * Total card = 4 + 3 + 3 = 10 word-slots.
+ * Distribute 10 word-slots into a schedule of 7 question items:
+ *   1 × matchPairs (4 words) + 3 × listenAndPick + 3 × typeTranslation = 10
+ * If the current lesson has grammar items, replace the last 1–2 typeTranslation
+ * slots with grammarDrill slots (cap 2 per duel).
  */
 function buildSchedule(words) {
-  const rng = seededRng(getTodayString() + '_schedule');
-  const shuffled = shuffle10([...words], rng);
+  var rng      = seededRng(getTodayString() + '_schedule');
+  var shuffled = shuffle10([...words], rng);
 
-  return [
+  var lessonState    = typeof getLessonState === 'function' ? getLessonState() : null;
+  var currentLesson  = lessonState && lessonState.currentLessonId
+    ? getLessonById(lessonState.currentLessonId) : null;
+  var grammarPool    = currentLesson ? (currentLesson.grammar || []) : [];
+  var grammarPick    = seededSample(grammarPool, Math.min(2, grammarPool.length), rng);
+
+  var schedule = [
     { type: 'matchPairs',      words: shuffled.slice(0, 4) },
     { type: 'listenAndPick',   word:  shuffled[4] },
     { type: 'typeTranslation', word:  shuffled[5] },
@@ -117,4 +135,12 @@ function buildSchedule(words) {
     { type: 'listenAndPick',   word:  shuffled[8] },
     { type: 'typeTranslation', word:  shuffled[9] },
   ];
+
+  // Replace the last K typeTranslation slots with grammar drills
+  var ttSlotIndices = [2, 4, 6];
+  grammarPick.forEach(function(g, i) {
+    schedule[ttSlotIndices[ttSlotIndices.length - 1 - i]] = { type: 'grammarDrill', item: g };
+  });
+
+  return schedule;
 }

@@ -47,11 +47,13 @@ function showScreen(id, animate = true) {
 function navTo(screenId, btn) {
   showScreen(screenId);
   setActiveNav(btn);
-  if (screenId === 'home-screen')    renderHome();
-  if (screenId === 'words-screen')   renderWords();
-  if (screenId === 'journey-screen') renderJourney();
-  if (screenId === 'avatar-screen')  renderAvatar();
-  if (screenId === 'stats-screen')   renderStats();
+  if (screenId === 'home-screen')          renderHome();
+  if (screenId === 'words-screen')         renderWords();
+  if (screenId === 'journey-screen')       renderJourney();
+  if (screenId === 'avatar-screen')        renderAvatar();
+  if (screenId === 'stats-screen')         renderStats();
+  if (screenId === 'lessons-screen')       renderLessons();
+  // lesson-detail-screen is rendered by renderLessonDetail(id) directly
 }
 
 function setActiveNav(activeBtn) {
@@ -144,6 +146,7 @@ async function renderHome() {
 
   renderLeaderboard(blob, today, id);
   renderWeekGrid(blob);
+  renderHomeLessonsCard();
 }
 
 function renderLeaderboard(blob, today, myId) {
@@ -282,12 +285,18 @@ function switchWordsTab(tab, btn) {
 
 function getTodayWordList() {
   const today = getTodayString();
-  const cached = getLocal('words_' + today);
-  if (cached) return cached.map(id => VOCABULARY.find(w => w.id === id)).filter(Boolean);
-  // Compute and cache if not yet saved
+  const lessonState = getLessonState();
+  const cacheKey = 'words_' + today + '_' + (lessonState.currentLessonId || 'l0');
+  const cached = getLocal(cacheKey);
+  if (cached) {
+    const words = cached.map(id => getVocabById(id)).filter(Boolean);
+    if (words.length === 10) return words;
+  }
   const strengths = getLocal('strengths') || {};
-  const words = pickTodaysWords(today, strengths);
-  setLocal('words_' + today, words.map(w => w.id));
+  const words = typeof pickTodaysLessonWords === 'function'
+    ? pickTodaysLessonWords(today, strengths, lessonState)
+    : pickTodaysWords(today, strengths);
+  setLocal(cacheKey, words.map(w => w.id));
   return words;
 }
 
@@ -315,18 +324,24 @@ function renderWeekWords() {
   clearEl(list);
 
   // Collect unique word IDs from the past 7 days
+  // Cache key is either 'words_YYYY-MM-DD' (legacy) or 'words_YYYY-MM-DD_<lessonId>' (new)
   const seenIds = new Set();
   const today = new Date();
   for (let i = 0; i < 7; i++) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
     const ds = toDateString(d);
-    const saved = getLocal('words_' + ds);
-    if (saved) saved.forEach(id => seenIds.add(id));
+    const prefix = 'words_' + ds;
+    for (const k of Object.keys(localStorage)) {
+      if (k === prefix || k.startsWith(prefix + '_')) {
+        const saved = getLocal(k);
+        if (saved) saved.forEach(id => seenIds.add(id));
+      }
+    }
   }
 
   const strengths = getLocal('strengths') || {};
-  const words = VOCABULARY.filter(w => seenIds.has(w.id));
+  const words = getAllVocab().filter(w => seenIds.has(w.id));
 
   if (words.length === 0) {
     const msg = document.createElement('p');
@@ -425,6 +440,14 @@ function startDuel() {
 
   runDailyDuel(words, result => {
     incrementStreak();
+    const masteredLesson = checkLessonMastery();
+    if (masteredLesson) {
+      const nextOrder  = masteredLesson.order + 1;
+      const nextLesson = LESSONS.find(l => l.order === nextOrder);
+      const msg = 'Lesson ' + masteredLesson.order + ' mastered! 🎉' +
+        (nextLesson ? ' Lesson ' + nextOrder + ' unlocked.' : ' All lessons complete!');
+      setTimeout(() => showToast(msg, 4000), 1800);
+    }
     showResult(result);
   });
 }
@@ -520,6 +543,321 @@ function showUnlockToast(item) {
   document.getElementById('result-unlock-name').textContent = item.name + ' unlocked!';
   document.getElementById('result-unlock-wrap').classList.remove('hidden');
   showToast('🎉 New item unlocked: ' + item.name, 3500);
+}
+
+/* ── Lessons Screens ──────────────────────────────────────────────────────── */
+function renderHomeLessonsCard() {
+  const state   = getLessonState();
+  const titleEl = document.getElementById('home-lessons-title');
+  const subEl   = document.getElementById('home-lessons-sub');
+  const barWrap = document.getElementById('home-lessons-bar-wrap');
+  const barEl   = document.getElementById('home-lessons-bar');
+  if (!titleEl) return;
+
+  if (!state.currentLessonId) {
+    titleEl.textContent = 'Your Lessons';
+    subEl.textContent   = 'Start your learning journey';
+    barWrap.classList.add('hidden');
+    return;
+  }
+
+  const lesson = getLessonById(state.currentLessonId);
+  if (!lesson) return;
+
+  const strengths = getLocal('strengths') || {};
+  const vIds  = lesson.vocab.map(v => v.id);
+  const strong = vIds.filter(id => (strengths[id]?.strength || 0) >= 80).length;
+  const pct   = vIds.length > 0 ? Math.round(strong / vIds.length * 100) : 0;
+
+  const mastered = state.masteredLessons || [];
+  const pill = mastered.includes(state.currentLessonId) ? 'Mastered' : 'In progress';
+
+  titleEl.textContent = 'Lesson ' + lesson.order + ': ' + lesson.title.en;
+  subEl.textContent   = pill + ' · ' + pct + '% vocab mastered';
+  barWrap.classList.remove('hidden');
+  barEl.style.width   = pct + '%';
+}
+
+function renderLessons() {
+  const list = document.getElementById('lessons-list');
+  if (!list) return;
+  clearEl(list);
+
+  const state     = getLessonState();
+  const strengths = getLocal('strengths') || {};
+  const mastered  = state.masteredLessons || [];
+
+  if (LESSONS.length === 0) {
+    const msg = document.createElement('p');
+    msg.style.cssText = 'color:var(--text-light); font-size:0.85rem; text-align:center; padding:40px 0;';
+    msg.textContent = 'No lessons loaded yet.';
+    list.appendChild(msg);
+    return;
+  }
+
+  // Show one-time partner note on first visit after starting a lesson
+  if (!getLocal('lessons_partner_note_shown') && state.currentLessonId) {
+    setLocal('lessons_partner_note_shown', true);
+    showToast('Lessons are personal — you and your partner can be on different lessons and still compete on points!', 5000);
+  }
+
+  LESSONS.forEach(lesson => {
+    const isMastered = mastered.includes(lesson.id);
+    const isCurrent  = state.currentLessonId === lesson.id;
+    // Lesson N unlocked when lesson N-1 is in masteredLessons (or it's lesson 1)
+    const prevId = 'lesson-' + String(lesson.order - 1).padStart(2, '0');
+    const isUnlocked = lesson.order === 1 || mastered.includes(prevId);
+
+    const vIds    = lesson.vocab.map(v => v.id);
+    const strong  = vIds.filter(id => (strengths[id]?.strength || 0) >= 80).length;
+    const vocabPct = vIds.length > 0 ? Math.round(strong / vIds.length * 100) : 0;
+
+    const card = document.createElement('div');
+    card.className = 'lesson-card' + (!isUnlocked ? ' lesson-card-locked' : '');
+    if (isUnlocked) card.onclick = () => openLessonDetail(lesson.id);
+
+    // Top row: number + title + pill
+    const row = document.createElement('div');
+    row.className = 'lesson-card-row';
+
+    const numEl = document.createElement('div');
+    numEl.className = 'lesson-card-num';
+    numEl.textContent = lesson.order;
+
+    const body = document.createElement('div');
+    body.className = 'lesson-card-body';
+    const titleDiv = document.createElement('div');
+    titleDiv.className = 'lesson-card-title';
+    titleDiv.textContent = lesson.title.en;
+    const frDiv = document.createElement('div');
+    frDiv.className = 'lesson-card-fr';
+    frDiv.textContent = lesson.title.fr;
+    body.appendChild(titleDiv);
+    body.appendChild(frDiv);
+
+    const pillLabel = isMastered ? 'Mastered' : isCurrent ? 'In progress' : isUnlocked ? 'Unlocked' : 'Locked';
+    const pillClass = isMastered ? 'lesson-pill-mastered' : isCurrent ? 'lesson-pill-progress' : isUnlocked ? 'lesson-pill-unlocked' : 'lesson-pill-locked';
+    const pill = document.createElement('div');
+    pill.className = 'lesson-pill ' + pillClass;
+    pill.textContent = pillLabel;
+
+    row.appendChild(numEl);
+    row.appendChild(body);
+    row.appendChild(pill);
+
+    // Progress bar
+    const prog = document.createElement('div');
+    prog.className = 'lesson-card-progress';
+    const barWrap = document.createElement('div');
+    barWrap.className = 'lesson-mini-bar-wrap';
+    const bar = document.createElement('div');
+    bar.className = 'lesson-mini-bar';
+    bar.style.width = vocabPct + '%';
+    barWrap.appendChild(bar);
+    const lbl = document.createElement('span');
+    lbl.className = 'lesson-mini-label';
+    lbl.textContent = vIds.length + ' words · ' + vocabPct + '% strong';
+    prog.appendChild(barWrap);
+    prog.appendChild(lbl);
+
+    card.appendChild(row);
+    card.appendChild(prog);
+    list.appendChild(card);
+  });
+}
+
+function openLessonDetail(lessonId) {
+  const lesson = getLessonById(lessonId);
+  if (!lesson) return;
+  document.getElementById('lesson-detail-header-title').textContent = lesson.title.en;
+  renderLessonDetail(lessonId);
+  showScreen('lesson-detail-screen');
+  setActiveNav(null);
+}
+
+function renderLessonDetail(lessonId) {
+  const content = document.getElementById('lesson-detail-content');
+  if (!content) return;
+  clearEl(content);
+
+  const lesson = getLessonById(lessonId);
+  if (!lesson) return;
+  const state     = getLessonState();
+  const strengths = getLocal('strengths') || {};
+  const mastered  = state.masteredLessons || [];
+  const isMastered = mastered.includes(lessonId);
+  const isCurrent  = state.currentLessonId === lessonId;
+
+  // Hero block
+  const hero = document.createElement('div');
+  hero.className = 'lesson-detail-hero';
+  const orderDiv = document.createElement('div');
+  orderDiv.className = 'lesson-detail-order';
+  orderDiv.textContent = 'Lesson ' + lesson.order;
+  const titleDiv = document.createElement('div');
+  titleDiv.className = 'lesson-detail-title serif';
+  titleDiv.textContent = lesson.title.en;
+  const frDiv = document.createElement('div');
+  frDiv.className = 'lesson-detail-fr';
+  frDiv.textContent = lesson.title.fr;
+  const introDiv = document.createElement('div');
+  introDiv.className = 'lesson-detail-intro';
+  introDiv.textContent = lesson.intro;
+  hero.appendChild(orderDiv);
+  hero.appendChild(titleDiv);
+  hero.appendChild(frDiv);
+  hero.appendChild(introDiv);
+  content.appendChild(hero);
+
+  // Vocab section
+  const vocabSection = document.createElement('div');
+  vocabSection.className = 'lesson-section';
+  const vocabHead = document.createElement('div');
+  vocabHead.className = 'section-label';
+  vocabHead.textContent = 'Vocabulary (' + lesson.vocab.length + ' words)';
+  vocabSection.appendChild(vocabHead);
+  lesson.vocab.forEach(w => vocabSection.appendChild(buildWordCard(w, strengths)));
+  content.appendChild(vocabSection);
+
+  // Grammar section
+  if (lesson.grammar && lesson.grammar.length > 0) {
+    const gramSection = document.createElement('div');
+    gramSection.className = 'lesson-section';
+    const gramHead = document.createElement('div');
+    gramHead.className = 'section-label';
+    gramHead.textContent = 'Grammar drills (' + lesson.grammar.length + ')';
+    gramSection.appendChild(gramHead);
+    lesson.grammar.forEach(g => {
+      const drillRow = document.createElement('div');
+      drillRow.className = 'grammar-drill-row';
+
+      const kindDiv = document.createElement('div');
+      kindDiv.className = 'grammar-drill-kind';
+      kindDiv.textContent = g.kind === 'conjugation' ? 'Conjugate' : g.kind === 'translation' ? 'Translate' : 'Transform';
+
+      const promptDiv = document.createElement('div');
+      promptDiv.className = 'grammar-drill-prompt';
+      if (g.kind === 'conjugation') {
+        promptDiv.textContent = g.prompt.lemma + ' — ' + g.prompt.person + ' (' + g.prompt.english_hint + ')';
+      } else if (g.kind === 'translation') {
+        promptDiv.textContent = g.prompt.english;
+      } else {
+        promptDiv.textContent = '"' + g.prompt.source + '" — ' + g.prompt.instruction;
+      }
+
+      const details = document.createElement('details');
+      details.className = 'grammar-drill-answer';
+      const summary = document.createElement('summary');
+      summary.textContent = 'Show answer';
+      const answerDiv = document.createElement('div');
+      answerDiv.className = 'grammar-answer-text';
+      answerDiv.textContent = g.answer;
+      details.appendChild(summary);
+      details.appendChild(answerDiv);
+      if (g.explanation) {
+        const expDiv = document.createElement('div');
+        expDiv.className = 'grammar-explanation';
+        expDiv.textContent = g.explanation;
+        details.appendChild(expDiv);
+      }
+
+      drillRow.appendChild(kindDiv);
+      drillRow.appendChild(promptDiv);
+      drillRow.appendChild(details);
+
+      const gramState = (state.grammar || {})[g.id];
+      const last5 = (gramState?.attempts || []).slice(-5);
+      if (last5.length > 0) {
+        const attemptsDiv = document.createElement('div');
+        attemptsDiv.className = 'grammar-attempts';
+        attemptsDiv.textContent = last5.map(c => c ? '✅' : '❌').join(' ');
+        drillRow.appendChild(attemptsDiv);
+      }
+
+      gramSection.appendChild(drillRow);
+    });
+    content.appendChild(gramSection);
+  }
+
+  // CTA
+  const ctaWrap = document.createElement('div');
+  ctaWrap.className = 'lesson-detail-cta';
+  const cta = document.createElement('button');
+  cta.className = 'btn btn-primary btn-full btn-lg';
+  if (isMastered) {
+    cta.textContent = 'Review this lesson';
+    cta.onclick = () => startLesson(lessonId, true);
+  } else if (isCurrent) {
+    cta.textContent = 'Continue (current lesson)';
+    cta.disabled = true;
+    cta.style.opacity = '0.6';
+  } else {
+    cta.textContent = 'Start this lesson';
+    cta.onclick = () => startLesson(lessonId, false);
+  }
+  ctaWrap.appendChild(cta);
+  content.appendChild(ctaWrap);
+}
+
+function startLesson(lessonId, isReview) {
+  const lesson  = getLessonById(lessonId);
+  if (!lesson) return;
+  const today   = getTodayString();
+  const played  = !!getLocal('result_' + today);
+
+  const doStart = (bustCache) => {
+    const state = getLessonState();
+    state.currentLessonId = lessonId;
+    if (!state.startedAt) state.startedAt = {};
+    state.startedAt[lessonId] = today;
+    saveLessonState(state);
+    if (bustCache) {
+      // Clear today's cached word list so duel recomputes with new lesson pool
+      for (const k of Object.keys(localStorage)) {
+        if (k.startsWith('words_' + today + '_')) localStorage.removeItem(k);
+      }
+    }
+    showToast('Lesson ' + lesson.order + ' started! Good luck 🇫🇷', 2500);
+    navTo('lessons-screen', null);
+  };
+
+  if (played || isReview) {
+    doStart(false);
+    return;
+  }
+
+  // Offer start-now vs start-tomorrow modal
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+
+  const card = document.createElement('div');
+  card.className = 'modal-card';
+
+  const mtitle = document.createElement('div');
+  mtitle.className = 'modal-title';
+  mtitle.textContent = 'Start Lesson ' + lesson.order + '?';
+
+  const mbody = document.createElement('div');
+  mbody.className = 'modal-body';
+  mbody.textContent = "Today's duel will use " + lesson.title.en + " words tomorrow. Want to start now and re-roll today's duel?";
+
+  const btnNow = document.createElement('button');
+  btnNow.className = 'btn btn-primary btn-full';
+  btnNow.textContent = 'Start now';
+  btnNow.onclick = () => { overlay.remove(); doStart(true); };
+
+  const btnTmr = document.createElement('button');
+  btnTmr.className = 'btn btn-secondary btn-full';
+  btnTmr.style.marginTop = '8px';
+  btnTmr.textContent = 'Start tomorrow';
+  btnTmr.onclick = () => { overlay.remove(); doStart(false); };
+
+  card.appendChild(mtitle);
+  card.appendChild(mbody);
+  card.appendChild(btnNow);
+  card.appendChild(btnTmr);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
 }
 
 /* ── Journey Screen ───────────────────────────────────────────────────────── */
@@ -994,7 +1332,7 @@ function renderWordCollection() {
   const list = document.getElementById('word-collection-list');
   list.innerHTML = '';
 
-  const seen = VOCABULARY.filter(w => strengths[w.id] !== undefined);
+  const seen = getAllVocab().filter(w => strengths[w.id] !== undefined);
   if (seen.length === 0) {
     const msg = document.createElement('p');
     msg.style.cssText = 'color:var(--text-light); font-size:0.85rem; text-align:center; padding:20px 0;';
