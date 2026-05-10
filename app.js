@@ -1,5 +1,5 @@
 /* ── State ────────────────────────────────────────────────────────────────── */
-let currentScreen = null;
+let currentScreen = 'start-screen';  // start-screen is visible on page load (no .hidden class)
 let currentPlayer = null;   // { id: string (normalized name), name: string (display) }
 
 /* ── Boot ─────────────────────────────────────────────────────────────────── */
