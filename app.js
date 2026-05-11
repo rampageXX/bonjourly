@@ -789,8 +789,7 @@ function renderLessonDetail(lessonId) {
     cta.onclick = () => startLesson(lessonId, true);
   } else if (isCurrent) {
     cta.textContent = 'Continue (current lesson)';
-    cta.disabled = true;
-    cta.style.opacity = '0.6';
+    cta.onclick = () => navTo('lessons-screen', null);
   } else {
     cta.textContent = 'Start this lesson';
     cta.onclick = () => startLesson(lessonId, false);
